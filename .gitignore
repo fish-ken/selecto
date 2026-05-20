@@ -1,0 +1,37 @@
+# Flutter / Dart
+.dart_tool/
+.packages
+.pub-cache/
+.pub/
+build/
+.flutter-plugins
+.flutter-plugins-dependencies
+pubspec.lock
+
+# IDE
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Native build outputs
+windows/flutter/ephemeral/
+linux/flutter/ephemeral/
+macos/Flutter/ephemeral/
+
+# Codegen outputs (regenerate locally)
+**/*.g.dart
+**/*.freezed.dart
+
+# AI model weights — large binaries, fetched out-of-band
+assets/models/*.onnx
+native/onnxruntime/
+
+# Local DB used during dev
+*.sqlite
+*.sqlite-journal

@@ -1,0 +1,2 @@
+# Drop ONNX model weights here, e.g. quality.onnx (image-quality scorer).
+# Files matching *.onnx are gitignored — fetch them out-of-band.
