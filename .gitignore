@@ -1,37 +1,125 @@
+# =============================================================
 # Flutter / Dart
+# =============================================================
 .dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
 .packages
 .pub-cache/
 .pub/
+.flutter_settings
+.last_build_id
 build/
-.flutter-plugins
-.flutter-plugins-dependencies
-pubspec.lock
 
-# IDE
+# Selecto is an application, not a library, so pubspec.lock IS tracked
+# (pinned deps → identical builds across machines and CI).
+
+# Flutter Version Management
+.fvm/
+fvm_config.json
+
+# Coverage
+coverage/
+*.lcov
+
+# =============================================================
+# Code generation output (Riverpod / Freezed / Drift / JSON)
+# =============================================================
+# Regenerate with `dart run build_runner build --delete-conflicting-outputs`.
+# Tracking these creates noisy diffs and merge conflicts on every provider
+# change; CLAUDE.md / README document the regen step for fresh clones.
+**/*.g.dart
+**/*.freezed.dart
+**/*.gr.dart
+**/*.config.dart
+**/*.mocks.dart
+
+# =============================================================
+# Flutter desktop — generated platform scaffolding
+# =============================================================
+# Rebuilt on every `flutter pub get` / `flutter create`.
+**/flutter/ephemeral/
+**/Flutter/ephemeral/
+
+# Windows
+windows/flutter/generated_plugin_registrant.cc
+windows/flutter/generated_plugin_registrant.h
+windows/flutter/generated_plugins.cmake
+
+# Linux
+linux/flutter/generated_plugin_registrant.cc
+linux/flutter/generated_plugin_registrant.h
+linux/flutter/generated_plugins.cmake
+
+# macOS
+macos/Flutter/GeneratedPluginRegistrant.swift
+macos/Flutter/Flutter-Generated.xcconfig
+macos/Pods/
+macos/.symlinks/
+
+# Xcode user state
+**/xcuserdata/
+**/*.xcuserstate
+
+# =============================================================
+# AI assets — large binaries, fetched out-of-band
+# =============================================================
+# Drop *.onnx / *.ort weights into assets/models/ on each machine
+# (they can be hundreds of MB and shouldn't bloat git history).
+assets/models/*.onnx
+assets/models/*.ort
+assets/models/*.bin
+assets/models/*.pt
+
+# Native ONNX Runtime libs — fetched by the `onnxruntime` pub package
+# on first build; only commit custom GPU/CoreML builds intentionally.
+native/onnxruntime/
+
+# =============================================================
+# Local dev data
+# =============================================================
+# Drift opens selecto.sqlite under getApplicationSupportDirectory()
+# in prod, but devs sometimes drop test DBs at the repo root.
+*.sqlite
+*.sqlite-journal
+*.sqlite-wal
+*.sqlite-shm
+*.db
+*.log
+
+# =============================================================
+# Environment / secrets
+# =============================================================
+.env
+.env.*
+!.env.example
+
+# =============================================================
+# IDE / Editor
+# =============================================================
 .idea/
-.vscode/
+.idea_modules/
 *.iml
 *.ipr
 *.iws
+.fleet/
 
+# VS Code — allow shared launch/task configs, ignore personal state.
+.vscode/*
+!.vscode/launch.json
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/extensions.json
+
+# =============================================================
 # OS
+# =============================================================
 .DS_Store
+.AppleDouble
+.LSOverride
 Thumbs.db
-
-# Native build outputs
-windows/flutter/ephemeral/
-linux/flutter/ephemeral/
-macos/Flutter/ephemeral/
-
-# Codegen outputs (regenerate locally)
-**/*.g.dart
-**/*.freezed.dart
-
-# AI model weights — large binaries, fetched out-of-band
-assets/models/*.onnx
-native/onnxruntime/
-
-# Local DB used during dev
-*.sqlite
-*.sqlite-journal
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+Desktop.ini
+$RECYCLE.BIN/
