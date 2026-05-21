@@ -9,6 +9,11 @@ part 'app_database.g.dart';
 
 /// Cached analysis results keyed by Photo.cacheKey (path::mtime::size).
 /// Survives app restarts so we don't re-run inference on unchanged files.
+///
+/// `@DataClassName` is required because Drift's default naming would turn
+/// `CachedAnalyses` into `CachedAnalyse` (just stripping the trailing 's'),
+/// which is grammatically wrong for the irregular plural "analyses".
+@DataClassName('CachedAnalysis')
 class CachedAnalyses extends Table {
   TextColumn get cacheKey => text()();
   TextColumn get path => text()();
