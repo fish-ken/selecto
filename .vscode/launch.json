@@ -7,7 +7,46 @@
             "request": "launch",
             "program": "lib/main.dart",
             "flutterMode": "debug",
-            "deviceId": "windows"
+            "deviceId": "windows",
+            "preLaunchTask": "build_runner: build"
         },
+        {
+            "name": "Profile Run",
+            "type": "dart",
+            "request": "launch",
+            "program": "lib/main.dart",
+            "flutterMode": "profile",
+            "deviceId": "windows",
+            "preLaunchTask": "build_runner: build"
+        },
+        {
+            "name": "Release Run",
+            "type": "dart",
+            "request": "launch",
+            "program": "lib/main.dart",
+            "flutterMode": "release",
+            "deviceId": "windows",
+            "preLaunchTask": "build_runner: build"
+        },
+        {
+            "name": "Dev Run (custom model)",
+            "type": "dart",
+            "request": "launch",
+            "program": "lib/main.dart",
+            "flutterMode": "debug",
+            "deviceId": "windows",
+            "preLaunchTask": "build_runner: build",
+            "args": [
+                "--dart-define=MODEL_PATH=C:/models/custom.onnx"
+            ]
+        },
+        {
+            "name": "Dev Run (no codegen)",
+            "type": "dart",
+            "request": "launch",
+            "program": "lib/main.dart",
+            "flutterMode": "debug",
+            "deviceId": "windows"
+        }
     ]
 }
