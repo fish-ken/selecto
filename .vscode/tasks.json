@@ -2,6 +2,38 @@
     "version": "2.0.0",
     "tasks": [
         {
+            "label": "init: flutter create platforms",
+            "type": "shell",
+            "command": "flutter",
+            "args": [
+                "create",
+                "--platforms=windows,macos,linux",
+                "--org=com.fish-ken",
+                "."
+            ],
+            "problemMatcher": []
+        },
+        {
+            "label": "init: flutter pub get",
+            "type": "shell",
+            "command": "flutter",
+            "args": [
+                "pub",
+                "get"
+            ],
+            "problemMatcher": []
+        },
+        {
+            "label": "init: full",
+            "dependsOrder": "sequence",
+            "dependsOn": [
+                "init: flutter create platforms",
+                "init: flutter pub get",
+                "build_runner: build"
+            ],
+            "problemMatcher": []
+        },
+        {
             "label": "build_runner: build",
             "type": "shell",
             "command": "dart",
