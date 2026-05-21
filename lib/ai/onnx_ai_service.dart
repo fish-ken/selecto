@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:isolate';
 
 import 'package:logging/logging.dart';
@@ -32,23 +33,27 @@ class OnnxAiService implements AiService {
 
   static int _defaultWorkerCount() {
     // Inference is CPU-heavy; leave one core for UI + GPU compositor.
-    final n = Isolate.current.toString().isEmpty ? 4 : 4;
-    return n.clamp(1, 8);
+    final cores = Platform.numberOfProcessors;
+    return (cores - 1).clamp(1, 8);
   }
 
   @override
   Future<void> warmup() => _ensureInit();
 
-  Future<void> _ensureInit() {
-    if (_initialized) return Future.value();
+  Future<void> _ensureInit() async {
+    if (_initialized) return;
     if (_initing != null) return _initing!.future;
     final c = Completer<void>();
     _initing = c;
-    _spawnAll().then((_) {
+    try {
+      await _spawnAll();
       _initialized = true;
       c.complete();
-    }).catchError(c.completeError);
-    return c.future;
+    } catch (e, st) {
+      c.completeError(e, st);
+      _initing = null;
+      rethrow;
+    }
   }
 
   Future<void> _spawnAll() async {

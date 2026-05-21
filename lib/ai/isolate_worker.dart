@@ -49,7 +49,10 @@ Future<void> aiWorkerEntry(WorkerInit init) async {
 
       // Most quality scorers expose a single input. If yours uses a
       // different name, change 'input' to match the model's metadata.
-      final outputs = session.run(runOptions, {'input': inputTensor});
+      // Explicit type on the map avoids generic-invariance errors
+      // (`Map<String, OrtValueTensor>` is not `Map<String, OrtValue>`).
+      final inputs = <String, OrtValue>{'input': inputTensor};
+      final outputs = session.run(runOptions, inputs);
 
       // Decode outputs defensively — different models expose different
       // heads. Adapt this once you know the exact graph.
@@ -93,6 +96,14 @@ _DecodedOutputs _decodeOutputs(List<OrtValue?> outputs) {
   // Default decoding assumes a single output tensor with one or more
   // floats in [quality, sharpness, face_prob, blink_prob] order.
   // Adjust to fit your real model.
+  if (outputs.isEmpty) {
+    return const _DecodedOutputs(
+      quality: 0,
+      sharpness: 0,
+      faceCount: 0,
+      hasBlink: false,
+    );
+  }
   final first = outputs.first?.value;
   if (first is List && first.isNotEmpty) {
     final flat = _flatten(first).cast<num>();

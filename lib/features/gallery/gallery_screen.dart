@@ -35,7 +35,7 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen> {
 
     // Choose grid breakpoints based on window width. 200px target tile.
     final width = MediaQuery.sizeOf(context).width - 32;
-    final crossAxisCount = (width / 200).floor().clamp(2, 12);
+    final crossAxisCount = (width / 200).floor().clamp(2, 12).toInt();
     final tileExtent = width / crossAxisCount;
 
     return Scaffold(

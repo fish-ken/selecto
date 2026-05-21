@@ -66,12 +66,12 @@ class GalleryController extends _$GalleryController {
     state = state.copyWith(analyzing: true, clearError: true);
 
     final analyze = ref.read(analyzePhotosProvider);
-    final running = Map<String, dynamic>.from(state.results);
+    final running = Map.of(state.results);
 
     _analyzeSub = analyze(state.photos).listen(
       (result) {
         running[result.photoCacheKey] = result;
-        state = state.copyWith(results: Map.unmodifiable(running.cast()));
+        state = state.copyWith(results: Map.unmodifiable(running));
       },
       onError: (Object e, StackTrace st) {
         _log.warning('analysis stream errored', e, st);

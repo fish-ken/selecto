@@ -30,7 +30,8 @@ class PhotoTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final cacheDim = (thumbExtent * MediaQuery.devicePixelRatioOf(context))
         .round()
-        .clamp(64, 1024);
+        .clamp(64, 1024)
+        .toInt();
 
     return Padding(
       padding: const EdgeInsets.all(4),

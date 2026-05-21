@@ -28,14 +28,16 @@ class AiAnalysisRepositoryImpl implements AiAnalysisRepository {
     final cached = await getCached(photo);
     if (cached != null) return cached;
     final fresh = await _service.analyze(photo);
-    await _persist(fresh);
+    await _persist(fresh, photo.path);
     return fresh;
   }
 
   @override
   Stream<AnalysisResult> analyzeAll(List<Photo> photos) async* {
     final pending = <Photo>[];
+    final pathByKey = <String, String>{};
     for (final photo in photos) {
+      pathByKey[photo.cacheKey] = photo.path;
       final cached = await getCached(photo);
       if (cached != null) {
         yield cached;
@@ -44,16 +46,17 @@ class AiAnalysisRepositoryImpl implements AiAnalysisRepository {
       }
     }
     await for (final result in _service.analyzeAll(pending)) {
-      await _persist(result);
+      final path = pathByKey[result.photoCacheKey] ?? '';
+      await _persist(result, path);
       yield result;
     }
   }
 
-  Future<void> _persist(AnalysisResult r) {
+  Future<void> _persist(AnalysisResult r, String path) {
     return _db.upsert(
       CachedAnalysesCompanion.insert(
         cacheKey: r.photoCacheKey,
-        path: '',
+        path: path,
         qualityScore: r.qualityScore,
         sharpnessScore: r.sharpnessScore,
         faceCount: r.faceCount,
