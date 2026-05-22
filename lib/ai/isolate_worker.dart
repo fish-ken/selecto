@@ -3,6 +3,7 @@ import 'dart:isolate';
 import 'dart:typed_data';
 
 import 'package:onnxruntime_v2/onnxruntime_v2.dart';
+import 'package:path/path.dart' as p;
 
 import 'isolate_messages.dart';
 import 'preprocessing.dart';
@@ -28,7 +29,12 @@ Future<void> aiWorkerEntry(WorkerInit init) async {
       ? session.inputNames.first
       : 'input';
 
-  const preprocessor = ImagePreprocessor();
+  // Different IQA models expect different normalization / layout.
+  // Map by file name — see PreprocessConfig.forModelFileName.
+  final preprocessor = ImagePreprocessor(
+    config:
+        PreprocessConfig.forModelFileName(p.basename(init.modelAssetPath)),
+  );
   final runOptions = OrtRunOptions();
 
   final commands = ReceivePort();
@@ -137,11 +143,13 @@ _DecodedOutputs _decodeOutputs(List<OrtValue?> outputs) {
     );
   }
 
-  // Generic fallback — first scalar is the quality, optional extras for
-  // sharpness / face / blink. Useful when wiring a brand-new model.
+  // Generic fallback — most non-NIMA IQA models (MANIQA, MUSIQ, CLIP-IQA)
+  // output a single scalar in roughly [0, 1]. Scale it to our 0..10
+  // reporting scale. If a future model outputs already-scaled values,
+  // add a dedicated branch above and check for it explicitly.
   return _DecodedOutputs(
-    quality: flat[0].clamp(0.0, 10.0),
-    sharpness: flat.length > 1 ? flat[1].clamp(0.0, 10.0) : 0.0,
+    quality: (flat[0] * 10.0).clamp(0.0, 10.0),
+    sharpness: flat.length > 1 ? (flat[1] * 10.0).clamp(0.0, 10.0) : 0.0,
     faceCount: flat.length > 2 ? flat[2].round() : 0,
     hasBlink: flat.length > 3 ? flat[3] > 0.5 : false,
   );

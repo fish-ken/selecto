@@ -41,14 +41,50 @@ class PreprocessConfig {
   final List<double> mean;
   final List<double> std;
 
-  /// Default for NIMA MobileNet (aesthetic / technical):
-  ///   - 224×224 NHWC
+  /// Default for the PINTO-style ONNX exports of NIMA MobileNet
+  /// (aesthetic / technical), which are transposed to NCHW during
+  /// conversion even though the original Keras model is NHWC.
+  ///   - 224×224 NCHW
   ///   - MobileNet preprocessing: `(x/127.5) - 1.0`
   static const nimaMobileNet = PreprocessConfig(
+    inputSize: 224,
+    layout: TensorLayout.nchw,
+    normalization: Normalization.mobilenet,
+  );
+
+  /// Same as [nimaMobileNet] but NHWC for Keras-native ONNX exports.
+  static const nimaMobileNetNhwc = PreprocessConfig(
     inputSize: 224,
     layout: TensorLayout.nhwc,
     normalization: Normalization.mobilenet,
   );
+
+  /// MANIQA (e.g. `maniqa_kadid10k.onnx`) — PyTorch original, NCHW,
+  /// ImageNet mean/std normalization. The model returns a scalar quality
+  /// score in roughly [0, 1].
+  static const maniqaImageNet = PreprocessConfig(
+    inputSize: 224,
+    layout: TensorLayout.nchw,
+    normalization: Normalization.imagenet,
+  );
+
+  /// Safe generic fallback for unknown ONNX models — NCHW, ImageNet
+  /// normalization (covers most PyTorch-exported vision models).
+  static const genericImageNet = PreprocessConfig(
+    inputSize: 224,
+    layout: TensorLayout.nchw,
+    normalization: Normalization.imagenet,
+  );
+
+  /// Picks the right preset based on the model file name. We can't read
+  /// preprocessing requirements from ONNX metadata reliably, so we match
+  /// by name — extend this list as more models are added.
+  static PreprocessConfig forModelFileName(String fileName) {
+    final lower = fileName.toLowerCase();
+    if (lower.contains('nima')) return nimaMobileNet;
+    if (lower.contains('maniqa')) return maniqaImageNet;
+    return genericImageNet;
+  }
 }
 
 class ImagePreprocessor {
