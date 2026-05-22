@@ -1,5 +1,6 @@
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/providers.dart';
@@ -40,6 +41,7 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen> {
       final err = next.error;
       if (err != null && err != prev?.error) {
         final messenger = ScaffoldMessenger.maybeOf(context);
+        final stack = next.errorStack;
         messenger?.showSnackBar(
           SnackBar(
             backgroundColor: Theme.of(context).colorScheme.errorContainer,
@@ -55,26 +57,18 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen> {
                     style: const TextStyle(color: Colors.white),
                   ),
                 ),
-                TextButton(
+                _SnackTextButton(
+                  label: 'Copy Log',
+                  onPressed: () => _copyErrorLog(
+                    context: context,
+                    messenger: messenger,
+                    error: err,
+                    stack: stack,
+                  ),
+                ),
+                _SnackTextButton(
+                  label: 'Dismiss',
                   onPressed: messenger.hideCurrentSnackBar,
-                  style: TextButton.styleFrom(
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 4,
-                    ),
-                    minimumSize: Size.zero,
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  ),
-                  child: const Text(
-                    'Dismiss',
-                    style: TextStyle(
-                      color: Colors.white,
-                      decoration: TextDecoration.underline,
-                      decorationColor: Colors.white,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
                 ),
               ],
             ),
@@ -230,4 +224,70 @@ class _StatusBar extends StatelessWidget {
       ),
     );
   }
+}
+
+/// White, underlined text button used inside the error SnackBar's content
+/// row. SnackBarAction can't carry styled labels, so we render TextButtons
+/// inline and share their styling through this small helper.
+class _SnackTextButton extends StatelessWidget {
+  const _SnackTextButton({required this.label, required this.onPressed});
+
+  final String label;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return TextButton(
+      onPressed: onPressed,
+      style: TextButton.styleFrom(
+        foregroundColor: Colors.white,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+        minimumSize: Size.zero,
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      ),
+      child: Text(
+        label,
+        style: const TextStyle(
+          color: Colors.white,
+          decoration: TextDecoration.underline,
+          decorationColor: Colors.white,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
+  }
+}
+
+/// Builds a paste-able log report and writes it to the system clipboard,
+/// then shows a brief confirmation SnackBar so the user knows it worked.
+Future<void> _copyErrorLog({
+  required BuildContext context,
+  required ScaffoldMessengerState? messenger,
+  required Object error,
+  required StackTrace? stack,
+}) async {
+  final buffer = StringBuffer()
+    ..writeln('# Selecto — Error log')
+    ..writeln('Timestamp: ${DateTime.now().toIso8601String()}')
+    ..writeln()
+    ..writeln('## Error')
+    ..writeln(error.toString());
+  if (stack != null) {
+    buffer
+      ..writeln()
+      ..writeln('## Stack')
+      ..writeln(stack.toString());
+  }
+
+  await Clipboard.setData(ClipboardData(text: buffer.toString()));
+
+  messenger
+    ?..hideCurrentSnackBar()
+    ..showSnackBar(
+      SnackBar(
+        content: const Text('Error log copied to clipboard'),
+        duration: const Duration(seconds: 2),
+        backgroundColor: Theme.of(context).colorScheme.inverseSurface,
+      ),
+    );
 }

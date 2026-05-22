@@ -12,6 +12,7 @@ class GalleryState {
     this.scanning = false,
     this.analyzing = false,
     this.error,
+    this.errorStack,
   });
 
   final String? rootPath;
@@ -30,6 +31,10 @@ class GalleryState {
   final bool analyzing;
   final Object? error;
 
+  /// Optional stack trace paired with [error]. Used by the SnackBar
+  /// "Copy Log" button to put a useful, paste-able report on the clipboard.
+  final StackTrace? errorStack;
+
   Photo? get currentPhoto =>
       photos.isEmpty ? null : photos[selectedIndex.clamp(0, photos.length - 1)];
 
@@ -42,6 +47,7 @@ class GalleryState {
     bool? scanning,
     bool? analyzing,
     Object? error,
+    StackTrace? errorStack,
     bool clearError = false,
   }) {
     return GalleryState(
@@ -53,6 +59,7 @@ class GalleryState {
       scanning: scanning ?? this.scanning,
       analyzing: analyzing ?? this.analyzing,
       error: clearError ? null : (error ?? this.error),
+      errorStack: clearError ? null : (errorStack ?? this.errorStack),
     );
   }
 }

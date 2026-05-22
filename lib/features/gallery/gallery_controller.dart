@@ -62,7 +62,7 @@ class GalleryController extends _$GalleryController {
       },
       onError: (Object e, StackTrace st) {
         _log.warning('scan failed', e, st);
-        state = state.copyWith(scanning: false, error: e);
+        state = state.copyWith(scanning: false, error: e, errorStack: st);
       },
       onDone: () {
         state = state.copyWith(
@@ -100,7 +100,7 @@ class GalleryController extends _$GalleryController {
         // Capture without flipping analyzing yet — onDone still fires
         // after the error event (we don't set cancelOnError).
         streamError = e;
-        state = state.copyWith(error: e);
+        state = state.copyWith(error: e, errorStack: st);
       },
       cancelOnError: false,
       onDone: () {
@@ -116,6 +116,7 @@ class GalleryController extends _$GalleryController {
               'Check the model input name / shape — see VS Code Debug Console '
               'for "inference failed" log lines.',
             ),
+            errorStack: StackTrace.current,
           );
         } else {
           state = state.copyWith(analyzing: false);
