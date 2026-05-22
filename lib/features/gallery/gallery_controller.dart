@@ -89,6 +89,7 @@ class GalleryController extends _$GalleryController {
     final startCount = running.length;
     final totalRequested = state.photos.length;
 
+    Object? streamError;
     _analyzeSub = analyze(state.photos).listen(
       (result) {
         running[result.photoCacheKey] = result;
@@ -96,14 +97,18 @@ class GalleryController extends _$GalleryController {
       },
       onError: (Object e, StackTrace st) {
         _log.warning('analysis stream errored', e, st);
-        state = state.copyWith(analyzing: false, error: e);
+        // Capture without flipping analyzing yet — onDone still fires
+        // after the error event (we don't set cancelOnError).
+        streamError = e;
+        state = state.copyWith(error: e);
       },
+      cancelOnError: false,
       onDone: () {
         final newlyAnalyzed = running.length - startCount;
-        // If the stream completed but yielded nothing, the model almost
-        // certainly failed (wrong input name, shape mismatch, etc.) —
-        // surface it so the user doesn't sit in front of a blank result.
-        if (newlyAnalyzed == 0 && totalRequested > 0) {
+        // If the stream completed but yielded nothing AND no explicit
+        // error came through, surface a generic hint so the user isn't
+        // stuck staring at unchanged scores.
+        if (newlyAnalyzed == 0 && totalRequested > 0 && streamError == null) {
           state = state.copyWith(
             analyzing: false,
             error: StateError(

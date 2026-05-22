@@ -2,7 +2,7 @@ import 'dart:io';
 import 'dart:isolate';
 import 'dart:typed_data';
 
-import 'package:onnxruntime/onnxruntime.dart';
+import 'package:onnxruntime_v2/onnxruntime_v2.dart';
 
 import 'isolate_messages.dart';
 import 'preprocessing.dart';
@@ -18,10 +18,8 @@ Future<void> aiWorkerEntry(WorkerInit init) async {
   OrtEnv.instance.init();
 
   final modelBytes = await File(init.modelAssetPath).readAsBytes();
-  final session = OrtSession.fromBuffer(
-    modelBytes,
-    OrtSessionOptions(),
-  );
+  final sessionOptions = OrtSessionOptions()..appendDefaultProviders();
+  final session = OrtSession.fromBuffer(modelBytes, sessionOptions);
 
   // The hardcoded 'input' name was the #1 source of silent inference
   // failure — Keras-exported ONNX models use 'input_1', PyTorch exports

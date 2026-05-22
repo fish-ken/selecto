@@ -134,6 +134,13 @@ class OnnxAiService implements AiService {
     var index = 0;
     var inFlight = 0;
     var closed = false;
+    Object? firstError;
+    StackTrace? firstStack;
+
+    // Mutual recursion between dispatchNext and maybeFinish — one needs
+    // a forward declaration via `late` since Dart's local function scope
+    // doesn't hoist names.
+    late final void Function() maybeFinish;
 
     void dispatchNext() {
       while (inFlight < workerCount && index < photos.length) {
@@ -142,24 +149,32 @@ class OnnxAiService implements AiService {
         analyze(photo).then((r) {
           inFlight--;
           if (!closed) controller.add(r);
-          if (index >= photos.length && inFlight == 0 && !closed) {
-            closed = true;
-            controller.close();
-          } else {
-            dispatchNext();
-          }
+          maybeFinish();
         }, onError: (Object e, StackTrace st) {
           inFlight--;
           _log.warning('inference failed', e, st);
-          if (index >= photos.length && inFlight == 0 && !closed) {
-            closed = true;
-            controller.close();
-          } else {
-            dispatchNext();
-          }
+          firstError ??= e;
+          firstStack ??= st;
+          maybeFinish();
         });
       }
     }
+
+    maybeFinish = () {
+      if (index >= photos.length && inFlight == 0 && !closed) {
+        closed = true;
+        // Surface the first per-photo failure to the caller so the UI can
+        // show *what* went wrong instead of a generic "0 results" message.
+        // Errors are added as a stream error event followed by close —
+        // Dart streams deliver these in order to the listener.
+        if (firstError != null) {
+          controller.addError(firstError!, firstStack);
+        }
+        controller.close();
+      } else {
+        dispatchNext();
+      }
+    };
 
     dispatchNext();
     yield* controller.stream;

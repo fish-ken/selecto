@@ -35,9 +35,13 @@ dependencies:
   # Image decoding / processing (off-thread via isolates)
   image: ^4.2.0
 
-  # ONNX Runtime via FFI. The `onnxruntime` package wraps the prebuilt
-  # native libs; we run sessions inside isolates from our own worker pool.
-  onnxruntime: ^1.4.1
+  # ONNX Runtime via FFI. Using `onnxruntime_v2` (a maintained fork of the
+  # original gtbluesky `onnxruntime` package, which has been frozen at
+  # 1.4.1 for 2 years and only supports ONNX IR ≤ 9). v2 follows ORT's
+  # own versioning — 1.23.x bundles ORT 1.23 which supports IR v10+.
+  # API surface is identical to the original (OrtSession, OrtValueTensor,
+  # OrtRunOptions, OrtEnv) so the migration is import-only.
+  onnxruntime_v2: ^1.23.2
 
   # Logging
   logging: ^1.2.0

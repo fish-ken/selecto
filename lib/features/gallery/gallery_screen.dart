@@ -119,7 +119,7 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen> {
           ),
           IconButton(
             tooltip: 'Select best shots',
-            onPressed: state.results.isEmpty
+            onPressed: state.results.isEmpty  
                 ? null
                 : () => ctrl.selectBest(topK: 25),
             icon: const Icon(Icons.star),
