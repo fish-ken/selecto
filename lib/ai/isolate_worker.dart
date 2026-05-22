@@ -96,12 +96,15 @@ class _DecodedOutputs {
 /// Output decoder.
 ///
 /// NIMA exposes a `[1, 10]` softmax distribution. We compute the mean
-/// opinion score (MOS = Σ (i+1) · p_i, i = 0..9) and normalize to 0..1
-/// by `(mos - 1) / 9`. This matches what the original NIMA paper does
-/// for ranking.
+/// opinion score (MOS = Σ (i+1) · p_i, i = 0..9), which by construction
+/// lies in [1, 10] and matches the NIMA paper's reporting scale.
+///
+/// Scores are stored on a **0..10 scale** in [AnalysisResult]. A score
+/// of exactly 0 is reserved as a "not analyzed / decode failure" sentinel
+/// — real NIMA outputs can't reach it.
 ///
 /// For other models the fallback path treats the first scalar as
-/// quality directly — still useful for sanity checks on unknown graphs.
+/// quality directly, clamped to [0, 10].
 _DecodedOutputs _decodeOutputs(List<OrtValue?> outputs) {
   if (outputs.isEmpty) {
     return const _DecodedOutputs(
@@ -122,15 +125,14 @@ _DecodedOutputs _decodeOutputs(List<OrtValue?> outputs) {
     );
   }
 
-  // NIMA-style 10-bin probability distribution → MOS.
+  // NIMA-style 10-bin probability distribution → MOS in [1, 10].
   if (flat.length == 10 && _isProbabilityDistribution(flat)) {
     var mos = 0.0;
     for (var i = 0; i < 10; i++) {
       mos += (i + 1) * flat[i];
     }
-    final normalized = ((mos - 1.0) / 9.0).clamp(0.0, 1.0);
     return _DecodedOutputs(
-      quality: normalized,
+      quality: mos.clamp(0.0, 10.0),
       sharpness: 0,
       faceCount: 0,
       hasBlink: false,
@@ -140,8 +142,8 @@ _DecodedOutputs _decodeOutputs(List<OrtValue?> outputs) {
   // Generic fallback — first scalar is the quality, optional extras for
   // sharpness / face / blink. Useful when wiring a brand-new model.
   return _DecodedOutputs(
-    quality: flat[0].clamp(0.0, 1.0),
-    sharpness: flat.length > 1 ? flat[1].clamp(0.0, 1.0) : 0.0,
+    quality: flat[0].clamp(0.0, 10.0),
+    sharpness: flat.length > 1 ? flat[1].clamp(0.0, 10.0) : 0.0,
     faceCount: flat.length > 2 ? flat[2].round() : 0,
     hasBlink: flat.length > 3 ? flat[3] > 0.5 : false,
   );

@@ -34,14 +34,15 @@ void main() {
       final c = photo('c');
       final d = photo('d');
 
+      // Scores on the 0..10 scale. Default minSharpness = 4.0.
       final selector = const SelectBestShots();
       final out = selector(
         photos: [a, b, c, d],
         resultsByCacheKey: {
-          a.cacheKey: result(a, q: 0.9, s: 0.8),
-          b.cacheKey: result(b, q: 0.95, s: 0.2), // blurry — dropped
-          c.cacheKey: result(c, q: 0.7, s: 0.9),
-          d.cacheKey: result(d, q: 0.99, s: 0.9, blink: true), // blink — dropped
+          a.cacheKey: result(a, q: 9.0, s: 8.0),
+          b.cacheKey: result(b, q: 9.5, s: 2.0), // blurry — dropped
+          c.cacheKey: result(c, q: 7.0, s: 9.0),
+          d.cacheKey: result(d, q: 9.9, s: 9.0, blink: true), // blink — dropped
         },
         topK: 2,
       );

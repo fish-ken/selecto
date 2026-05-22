@@ -114,7 +114,7 @@ class _ScoreChip extends StatelessWidget {
         borderRadius: BorderRadius.circular(4),
       ),
       child: Text(
-        score.toStringAsFixed(2),
+        score.toStringAsFixed(1),
         style: const TextStyle(color: Colors.white, fontSize: 11),
       ),
     );

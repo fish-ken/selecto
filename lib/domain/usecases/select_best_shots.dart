@@ -5,13 +5,15 @@ import '../entities/photo.dart';
 ///
 /// Strategy: drop anything below [minSharpness] or with blinks, then
 /// keep the top-K by [AnalysisResult.qualityScore].
+///
+/// Scores are on the 0..10 scale (see [AnalysisResult] docs).
 class SelectBestShots {
   const SelectBestShots();
 
   List<Photo> call({
     required List<Photo> photos,
     required Map<String, AnalysisResult> resultsByCacheKey,
-    double minSharpness = 0.4,
+    double minSharpness = 4.0,
     int? topK,
   }) {
     final scored = <(Photo, AnalysisResult)>[];

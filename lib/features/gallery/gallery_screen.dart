@@ -42,12 +42,41 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen> {
         final messenger = ScaffoldMessenger.maybeOf(context);
         messenger?.showSnackBar(
           SnackBar(
-            content: Text('Error: $err'),
             backgroundColor: Theme.of(context).colorScheme.errorContainer,
             duration: const Duration(seconds: 8),
-            action: SnackBarAction(
-              label: 'Dismiss',
-              onPressed: messenger.hideCurrentSnackBar,
+            // `SnackBarAction.label` is a plain String — no way to add
+            // underline through its API. Embed the dismiss button into
+            // `content` so we control colour + decoration directly.
+            content: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'Error: $err',
+                    style: const TextStyle(color: Colors.white),
+                  ),
+                ),
+                TextButton(
+                  onPressed: messenger.hideCurrentSnackBar,
+                  style: TextButton.styleFrom(
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 4,
+                    ),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  child: const Text(
+                    'Dismiss',
+                    style: TextStyle(
+                      color: Colors.white,
+                      decoration: TextDecoration.underline,
+                      decorationColor: Colors.white,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
         );
