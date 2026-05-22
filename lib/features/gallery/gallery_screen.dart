@@ -2,8 +2,11 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../app/providers.dart';
 import 'gallery_controller.dart';
+import 'gallery_state.dart';
 import 'widgets/gallery_shortcuts.dart';
+import 'widgets/model_picker.dart';
 import 'widgets/photo_tile.dart';
 
 class GalleryScreen extends ConsumerStatefulWidget {
@@ -30,6 +33,27 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Surface errors raised by the gallery controller (scan failure,
+    // inference crash, missing model, etc.). Without this they'd only
+    // hit the log file and the user would see nothing change.
+    ref.listen<GalleryState>(galleryControllerProvider, (prev, next) {
+      final err = next.error;
+      if (err != null && err != prev?.error) {
+        final messenger = ScaffoldMessenger.maybeOf(context);
+        messenger?.showSnackBar(
+          SnackBar(
+            content: Text('Error: $err'),
+            backgroundColor: Theme.of(context).colorScheme.errorContainer,
+            duration: const Duration(seconds: 8),
+            action: SnackBarAction(
+              label: 'Dismiss',
+              onPressed: messenger.hideCurrentSnackBar,
+            ),
+          ),
+        );
+      }
+    });
+
     final state = ref.watch(galleryControllerProvider);
     final ctrl = ref.read(galleryControllerProvider.notifier);
 
@@ -38,18 +62,22 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen> {
     final crossAxisCount = (width / 200).floor().clamp(2, 12).toInt();
     final tileExtent = width / crossAxisCount;
 
+    final hasModel = ref.watch(selectedModelProvider) != null;
+
     return Scaffold(
       appBar: AppBar(
         title: Text(state.rootPath ?? 'Selecto'),
         actions: [
+          const ModelPicker(),
+          const SizedBox(width: 8),
           IconButton(
             tooltip: 'Open folder',
             onPressed: _pickDirectory,
             icon: const Icon(Icons.folder_open),
           ),
           IconButton(
-            tooltip: 'Analyze',
-            onPressed: state.photos.isEmpty || state.analyzing
+            tooltip: hasModel ? 'Analyze' : 'No model selected',
+            onPressed: state.photos.isEmpty || state.analyzing || !hasModel
                 ? null
                 : ctrl.analyzeAll,
             icon: state.analyzing

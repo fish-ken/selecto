@@ -17,6 +17,19 @@ class GalleryController extends _$GalleryController {
 
   @override
   GalleryState build() {
+    // When the user switches models, wipe in-memory results so the UI
+    // doesn't show scores from the previous model. The DB cache stays —
+    // it's namespaced by modelId so old scores remain available if the
+    // user switches back.
+    ref.listen(selectedModelProvider, (prev, next) {
+      if (prev == next) return;
+      _analyzeSub?.cancel();
+      state = state.copyWith(
+        results: const {},
+        analyzing: false,
+      );
+    });
+
     ref.onDispose(() {
       _scanSub?.cancel();
       _analyzeSub?.cancel();
@@ -62,11 +75,19 @@ class GalleryController extends _$GalleryController {
 
   Future<void> analyzeAll() async {
     if (state.photos.isEmpty || state.analyzing) return;
+    final analyze = ref.read(analyzePhotosProvider);
+    if (analyze == null) {
+      state = state.copyWith(
+        error: StateError('No model selected'),
+      );
+      return;
+    }
     await _analyzeSub?.cancel();
     state = state.copyWith(analyzing: true, clearError: true);
 
-    final analyze = ref.read(analyzePhotosProvider);
     final running = Map.of(state.results);
+    final startCount = running.length;
+    final totalRequested = state.photos.length;
 
     _analyzeSub = analyze(state.photos).listen(
       (result) {
@@ -77,7 +98,24 @@ class GalleryController extends _$GalleryController {
         _log.warning('analysis stream errored', e, st);
         state = state.copyWith(analyzing: false, error: e);
       },
-      onDone: () => state = state.copyWith(analyzing: false),
+      onDone: () {
+        final newlyAnalyzed = running.length - startCount;
+        // If the stream completed but yielded nothing, the model almost
+        // certainly failed (wrong input name, shape mismatch, etc.) —
+        // surface it so the user doesn't sit in front of a blank result.
+        if (newlyAnalyzed == 0 && totalRequested > 0) {
+          state = state.copyWith(
+            analyzing: false,
+            error: StateError(
+              'Analysis produced 0 results for $totalRequested photos. '
+              'Check the model input name / shape — see VS Code Debug Console '
+              'for "inference failed" log lines.',
+            ),
+          );
+        } else {
+          state = state.copyWith(analyzing: false);
+        }
+      },
     );
   }
 

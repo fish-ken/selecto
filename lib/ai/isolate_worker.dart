@@ -23,6 +23,13 @@ Future<void> aiWorkerEntry(WorkerInit init) async {
     OrtSessionOptions(),
   );
 
+  // The hardcoded 'input' name was the #1 source of silent inference
+  // failure — Keras-exported ONNX models use 'input_1', PyTorch exports
+  // might use 'image', etc. Query the graph instead of guessing.
+  final inputName = session.inputNames.isNotEmpty
+      ? session.inputNames.first
+      : 'input';
+
   const preprocessor = ImagePreprocessor();
   final runOptions = OrtRunOptions();
 
@@ -47,15 +54,9 @@ Future<void> aiWorkerEntry(WorkerInit init) async {
         pre.shape,
       );
 
-      // Most quality scorers expose a single input. If yours uses a
-      // different name, change 'input' to match the model's metadata.
-      // Explicit type on the map avoids generic-invariance errors
-      // (`Map<String, OrtValueTensor>` is not `Map<String, OrtValue>`).
-      final inputs = <String, OrtValue>{'input': inputTensor};
+      final inputs = <String, OrtValue>{inputName: inputTensor};
       final outputs = session.run(runOptions, inputs);
 
-      // Decode outputs defensively — different models expose different
-      // heads. Adapt this once you know the exact graph.
       final result = _decodeOutputs(outputs);
 
       inputTensor.release();
@@ -92,10 +93,16 @@ class _DecodedOutputs {
   final bool hasBlink;
 }
 
+/// Output decoder.
+///
+/// NIMA exposes a `[1, 10]` softmax distribution. We compute the mean
+/// opinion score (MOS = Σ (i+1) · p_i, i = 0..9) and normalize to 0..1
+/// by `(mos - 1) / 9`. This matches what the original NIMA paper does
+/// for ranking.
+///
+/// For other models the fallback path treats the first scalar as
+/// quality directly — still useful for sanity checks on unknown graphs.
 _DecodedOutputs _decodeOutputs(List<OrtValue?> outputs) {
-  // Default decoding assumes a single output tensor with one or more
-  // floats in [quality, sharpness, face_prob, blink_prob] order.
-  // Adjust to fit your real model.
   if (outputs.isEmpty) {
     return const _DecodedOutputs(
       quality: 0,
@@ -105,30 +112,61 @@ _DecodedOutputs _decodeOutputs(List<OrtValue?> outputs) {
     );
   }
   final first = outputs.first?.value;
-  if (first is List && first.isNotEmpty) {
-    final flat = _flatten(first).cast<num>();
-    final values = flat.map((n) => n.toDouble()).toList(growable: false);
-    return _DecodedOutputs(
-      quality: values.isNotEmpty ? values[0].clamp(0.0, 1.0) : 0.0,
-      sharpness: values.length > 1 ? values[1].clamp(0.0, 1.0) : 0.0,
-      faceCount: values.length > 2 ? values[2].round() : 0,
-      hasBlink: values.length > 3 ? values[3] > 0.5 : false,
+  final flat = _toDoubleList(first);
+  if (flat.isEmpty) {
+    return const _DecodedOutputs(
+      quality: 0,
+      sharpness: 0,
+      faceCount: 0,
+      hasBlink: false,
     );
   }
-  if (first is Float32List && first.isNotEmpty) {
+
+  // NIMA-style 10-bin probability distribution → MOS.
+  if (flat.length == 10 && _isProbabilityDistribution(flat)) {
+    var mos = 0.0;
+    for (var i = 0; i < 10; i++) {
+      mos += (i + 1) * flat[i];
+    }
+    final normalized = ((mos - 1.0) / 9.0).clamp(0.0, 1.0);
     return _DecodedOutputs(
-      quality: first[0].clamp(0.0, 1.0),
-      sharpness: first.length > 1 ? first[1].clamp(0.0, 1.0) : 0.0,
-      faceCount: first.length > 2 ? first[2].round() : 0,
-      hasBlink: first.length > 3 ? first[3] > 0.5 : false,
+      quality: normalized,
+      sharpness: 0,
+      faceCount: 0,
+      hasBlink: false,
     );
   }
-  return const _DecodedOutputs(
-    quality: 0,
-    sharpness: 0,
-    faceCount: 0,
-    hasBlink: false,
+
+  // Generic fallback — first scalar is the quality, optional extras for
+  // sharpness / face / blink. Useful when wiring a brand-new model.
+  return _DecodedOutputs(
+    quality: flat[0].clamp(0.0, 1.0),
+    sharpness: flat.length > 1 ? flat[1].clamp(0.0, 1.0) : 0.0,
+    faceCount: flat.length > 2 ? flat[2].round() : 0,
+    hasBlink: flat.length > 3 ? flat[3] > 0.5 : false,
   );
+}
+
+List<double> _toDoubleList(Object? value) {
+  if (value == null) return const [];
+  if (value is Float32List) return value.toList(growable: false);
+  if (value is List) {
+    return _flatten(value)
+        .whereType<num>()
+        .map((n) => n.toDouble())
+        .toList(growable: false);
+  }
+  return const [];
+}
+
+/// Heuristic — sums close to 1.0 with all non-negative values → softmax.
+bool _isProbabilityDistribution(List<double> v) {
+  var sum = 0.0;
+  for (final x in v) {
+    if (x < -0.001 || x > 1.001) return false;
+    sum += x;
+  }
+  return (sum - 1.0).abs() < 0.05;
 }
 
 Iterable<Object?> _flatten(Object? value) sync* {
