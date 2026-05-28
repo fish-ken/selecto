@@ -121,7 +121,7 @@ class _FilmstripTile extends StatelessWidget {
               fit: StackFit.expand,
               children: [
                 Image.file(
-                  File(photo.path),
+                  File(photo.decodablePath),
                   fit: BoxFit.cover,
                   cacheWidth: cacheDim,
                   cacheHeight: cacheDim,

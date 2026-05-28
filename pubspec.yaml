@@ -46,6 +46,9 @@ dependencies:
   # Logging
   logging: ^1.2.0
 
+  # Stable filename hashing for the RAW preview cache.
+  crypto: ^3.0.3
+
   # System / desktop integration
   window_manager: ^0.4.2
 

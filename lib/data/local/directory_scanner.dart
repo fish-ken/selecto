@@ -4,6 +4,7 @@ import 'package:logging/logging.dart';
 import 'package:path/path.dart' as p;
 
 import '../../domain/entities/photo.dart';
+import 'raw_preview_cache.dart';
 
 /// Recursively walks a directory and emits [Photo]s for supported files.
 /// Uses [Directory.list] with `followLinks: false` to avoid symlink cycles.
@@ -12,12 +13,20 @@ import '../../domain/entities/photo.dart';
 /// `System Volume Information` and throw `FileSystemException`. We swallow
 /// per-entity errors via `handleError` so one bad folder doesn't kill the
 /// whole scan.
+///
+/// RAW files (.NEF / .CR2 / .ARW / …) are routed through
+/// [RawPreviewCache] which extracts their embedded JPEG preview via
+/// `exiftool`. If extraction fails (no exiftool installed, no embedded
+/// preview, etc.), the RAW is skipped silently — see the log file.
 class DirectoryScanner {
-  const DirectoryScanner();
+  DirectoryScanner({RawPreviewCache? rawCache})
+      : _rawCache = rawCache ?? RawPreviewCache();
+
+  final RawPreviewCache _rawCache;
 
   static final _log = Logger('DirectoryScanner');
 
-  static const _supportedExts = <String>{
+  static const _decodableExts = <String>{
     '.jpg',
     '.jpeg',
     '.png',
@@ -43,18 +52,36 @@ class DirectoryScanner {
     await for (final entity in entities) {
       if (entity is! File) continue;
       final ext = p.extension(entity.path).toLowerCase();
-      if (!_supportedExts.contains(ext)) continue;
+      final isDecodable = _decodableExts.contains(ext);
+      final isRaw = RawPreviewCache.isRaw(entity.path);
+      if (!isDecodable && !isRaw) continue;
 
+      final FileStat stat;
       try {
-        final stat = await entity.stat();
-        yield Photo(
-          path: entity.path,
-          byteSize: stat.size,
-          modifiedAt: stat.modified,
-        );
+        stat = await entity.stat();
       } on FileSystemException catch (e) {
         _log.fine('stat failed for ${entity.path}: $e');
+        continue;
       }
+
+      String? previewPath;
+      if (isRaw) {
+        previewPath = await _rawCache.extractPreview(
+          entity,
+          mtime: stat.modified,
+          size: stat.size,
+        );
+        // Couldn't extract a preview → skip rather than yield a Photo
+        // that grid/AI can't actually decode.
+        if (previewPath == null) continue;
+      }
+
+      yield Photo(
+        path: entity.path,
+        byteSize: stat.size,
+        modifiedAt: stat.modified,
+        previewPath: previewPath,
+      );
     }
   }
 }

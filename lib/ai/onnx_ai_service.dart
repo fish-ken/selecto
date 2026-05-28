@@ -117,7 +117,9 @@ class OnnxAiService implements AiService {
     port.send(
       InferenceRequest(
         id: id,
-        photoPath: photo.path,
+        // Pass the decodable path so the worker can read JPEG bytes
+        // directly — for RAW files this is the cached preview.
+        photoPath: photo.decodablePath,
         photoCacheKey: photo.cacheKey,
       ),
     );

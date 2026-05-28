@@ -6,7 +6,7 @@ import '../local/directory_scanner.dart';
 
 class PhotoRepositoryImpl implements PhotoRepository {
   PhotoRepositoryImpl({DirectoryScanner? scanner})
-      : _scanner = scanner ?? const DirectoryScanner();
+      : _scanner = scanner ?? DirectoryScanner();
 
   final DirectoryScanner _scanner;
 

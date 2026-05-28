@@ -157,6 +157,10 @@ class GalleryController extends _$GalleryController {
   /// Auto-select the best shots from analysis results.
   /// Picks every photo whose qualityScore is at or above the
   /// `(1 - topPercentile)` quantile of the current run's scores.
+  ///
+  /// Existing picks are preserved — the selection is *added* to whatever
+  /// the user has already chosen by hand. To start clean, call
+  /// [unpickAll] first.
   void selectBest({double topPercentile = 0.2}) {
     final selector = ref.read(selectBestShotsProvider);
     final best = selector(
@@ -164,6 +168,8 @@ class GalleryController extends _$GalleryController {
       resultsByCacheKey: state.results,
       topPercentile: topPercentile,
     );
-    state = state.copyWith(picked: best.map((p) => p.path).toSet());
+    state = state.copyWith(
+      picked: {...state.picked, ...best.map((p) => p.path)},
+    );
   }
 }

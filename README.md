@@ -65,11 +65,18 @@ lib/
 - **Windows**: Visual Studio + "Desktop development with C++" 워크로드
 - **macOS**: Xcode 14+ 및 command-line tools
 - **Linux**: `clang`, `cmake`, `ninja-build`, `pkg-config`, `libgtk-3-dev`
+- **exiftool** *(선택 — 카메라 RAW 파일 지원용)*: `.NEF` / `.CR2` / `.ARW` / `.RAF` 등 RAW 파일을 다루려면 PATH 에 `exiftool` 이 있어야 합니다. 없으면 RAW 파일은 스캔 시 그냥 건너뜁니다 (JPEG/PNG 등은 영향 없음).
+  ```pwsh
+  winget install -e --id OliverBetz.ExifTool        # Windows
+  brew install exiftool                              # macOS
+  sudo apt install libimage-exiftool-perl            # Debian/Ubuntu
+  ```
 
 설치 확인:
 
 ```pwsh
 flutter doctor
+exiftool -ver       # RAW 지원 쓸 거면 함께 확인
 ```
 
 타겟 플랫폼에 대한 모든 항목이 ✓ 여야 합니다.

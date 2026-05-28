@@ -70,7 +70,7 @@ class ViewerScreen extends ConsumerWidget {
                   color: Colors.black,
                   alignment: Alignment.center,
                   child: Image.file(
-                    File(photo.path),
+                    File(photo.decodablePath),
                     // Preserve original aspect ratio; let Flutter scale
                     // to fit the available pane.
                     fit: BoxFit.contain,
