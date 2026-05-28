@@ -20,6 +20,8 @@ class SelectBestShots {
     for (final p in photos) {
       final r = resultsByCacheKey[p.cacheKey];
       if (r == null) continue;
+      // if (r.hasBlink) continue;
+      // if (r.sharpnessScore < minSharpness) continue; 
       scored.add((p, r));
     }
     scored.sort((a, b) => b.$2.qualityScore.compareTo(a.$2.qualityScore));
