@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
 import '../../../domain/entities/analysis_result.dart';
@@ -37,12 +38,15 @@ class PhotoTile extends StatelessWidget {
 
     return Padding(
       padding: const EdgeInsets.all(4),
-      child: GestureDetector(
-        // Use onTapDown so the cursor highlight fires the instant the
-        // pointer hits the tile — without this, GestureDetector waits
-        // ~300ms (kDoubleTapTimeout) to disambiguate against onDoubleTap
-        // before firing onTap, which is the lag you were feeling.
-        onTapDown: (_) => onTap(),
+      // Use a raw Listener instead of GestureDetector so the click bypasses
+      // Flutter's gesture arena entirely. With GestureDetector(onTapDown +
+      // onDoubleTap), the TapGestureRecognizer waits ~100 ms (kPressTimeout)
+      // before firing because the DoubleTapGestureRecognizer is competing
+      // for the same pointer — which is why keyboard navigation felt
+      // instant but mouse clicks felt mushy. Listener delivers the
+      // PointerDownEvent the moment it arrives.
+      child: _InstantClick(
+        onTap: onTap,
         onDoubleTap: onDoubleTap,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 80),
@@ -84,6 +88,67 @@ class PhotoTile extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Pointer-down click detector that fires `onTap` the instant a primary
+/// button (mouse) or touch contact lands, with no gesture-arena delay,
+/// and `onDoubleTap` when a second click arrives within ~280 ms.
+///
+/// Why not `GestureDetector`? Because pairing `onTapDown` with
+/// `onDoubleTap` puts the TapGestureRecognizer in arena contention with
+/// the DoubleTapGestureRecognizer. `onTapDown` can't fire until the arena
+/// resolves, which costs up to `kPressTimeout` (100 ms) per click — a
+/// noticeable lag, especially next to keyboard input which doesn't go
+/// through the arena at all.
+class _InstantClick extends StatefulWidget {
+  const _InstantClick({
+    required this.onTap,
+    required this.onDoubleTap,
+    required this.child,
+  });
+
+  final VoidCallback onTap;
+  final VoidCallback onDoubleTap;
+  final Widget child;
+
+  @override
+  State<_InstantClick> createState() => _InstantClickState();
+}
+
+class _InstantClickState extends State<_InstantClick> {
+  // 280 ms is comfortably under the default OS double-click window
+  // (typically 400-500 ms on Windows) but above natural single-click
+  // jitter. Tweak if needed.
+  static const _doubleClickWindowMs = 280;
+
+  int _lastDownMs = 0;
+
+  void _onPointerDown(PointerDownEvent event) {
+    // Filter to primary mouse button, or any touch / stylus tip.
+    // (For touch events `buttons` is 0, so we let those through.)
+    if (event.kind == PointerDeviceKind.mouse &&
+        (event.buttons & kPrimaryButton) == 0) {
+      return;
+    }
+
+    final now = DateTime.now().millisecondsSinceEpoch;
+    if (now - _lastDownMs < _doubleClickWindowMs) {
+      _lastDownMs = 0;
+      widget.onDoubleTap();
+    } else {
+      _lastDownMs = now;
+      widget.onTap();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Listener(
+      behavior: HitTestBehavior.opaque,
+      onPointerDown: _onPointerDown,
+      child: widget.child,
     );
   }
 }
