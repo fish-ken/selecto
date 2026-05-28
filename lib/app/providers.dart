@@ -69,13 +69,9 @@ AiService? aiService(AiServiceRef ref) {
 @Riverpod(keepAlive: true)
 AiAnalysisRepository? aiAnalysisRepository(AiAnalysisRepositoryRef ref) {
   final service = ref.watch(aiServiceProvider);
-  final selected = ref.watch(selectedModelProvider);
-  if (service == null || selected == null) return null;
-  return AiAnalysisRepositoryImpl(
-    service: service,
-    db: ref.watch(appDatabaseProvider),
-    modelId: selected.fileName,
-  );
+  if (service == null) return null;
+  // Caching disabled — repository is a passthrough to the AI service.
+  return AiAnalysisRepositoryImpl(service: service);
 }
 
 @riverpod
