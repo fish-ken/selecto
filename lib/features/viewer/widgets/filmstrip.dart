@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 
+import '../../../domain/entities/analysis_result.dart';
 import '../../../domain/entities/photo.dart';
 
 /// Horizontal thumbnail strip shown along the bottom of the viewer.
@@ -12,12 +13,14 @@ class Filmstrip extends StatefulWidget {
     required this.photos,
     required this.selectedIndex,
     required this.picked,
+    required this.resultsByCacheKey,
     required this.onTap,
   });
 
   final List<Photo> photos;
   final int selectedIndex;
   final Set<String> picked;
+  final Map<String, AnalysisResult> resultsByCacheKey;
   final ValueChanged<int> onTap;
 
   @override
@@ -27,6 +30,14 @@ class Filmstrip extends StatefulWidget {
 class _FilmstripState extends State<Filmstrip> {
   static const _itemExtent = 96.0; // tile width + horizontal padding
   final _scrollCtrl = ScrollController();
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _ensureVisible(widget.selectedIndex);
+    });
+  }
 
   @override
   void didUpdateWidget(Filmstrip old) {
@@ -74,6 +85,7 @@ class _FilmstripState extends State<Filmstrip> {
             photo: photo,
             isCursor: i == widget.selectedIndex,
             isPicked: widget.picked.contains(photo.path),
+            analysis: widget.resultsByCacheKey[photo.cacheKey],
             onTap: () => widget.onTap(i),
           );
         },
@@ -88,12 +100,14 @@ class _FilmstripTile extends StatelessWidget {
     required this.isCursor,
     required this.isPicked,
     required this.onTap,
+    this.analysis,
   });
 
   final Photo photo;
   final bool isCursor;
   final bool isPicked;
   final VoidCallback onTap;
+  final AnalysisResult? analysis;
 
   @override
   Widget build(BuildContext context) {
@@ -148,6 +162,28 @@ class _FilmstripTile extends StatelessWidget {
                         Icons.check,
                         size: 10,
                         color: Colors.white,
+                      ),
+                    ),
+                  ),
+                if (analysis != null)
+                  Positioned(
+                    left: 2,
+                    bottom: 2,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 4,
+                        vertical: 1,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.black54,
+                        borderRadius: BorderRadius.circular(3),
+                      ),
+                      child: Text(
+                        analysis!.qualityScore.toStringAsFixed(1),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 9,
+                        ),
                       ),
                     ),
                   ),

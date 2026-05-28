@@ -93,6 +93,7 @@ class ViewerScreen extends ConsumerWidget {
                 photos: state.photos,
                 selectedIndex: state.selectedIndex,
                 picked: state.picked,
+                resultsByCacheKey: state.results,
                 onTap: ctrl.setCursor,
               ),
             ),
