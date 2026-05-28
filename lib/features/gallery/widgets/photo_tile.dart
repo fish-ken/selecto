@@ -38,7 +38,11 @@ class PhotoTile extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.all(4),
       child: GestureDetector(
-        onTap: onTap,
+        // Use onTapDown so the cursor highlight fires the instant the
+        // pointer hits the tile — without this, GestureDetector waits
+        // ~300ms (kDoubleTapTimeout) to disambiguate against onDoubleTap
+        // before firing onTap, which is the lag you were feeling.
+        onTapDown: (_) => onTap(),
         onDoubleTap: onDoubleTap,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 80),
