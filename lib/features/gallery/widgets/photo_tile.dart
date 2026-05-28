@@ -18,6 +18,7 @@ class PhotoTile extends StatelessWidget {
     required this.isPicked,
     required this.onTap,
     required this.onDoubleTap,
+    this.onSecondaryTap,
     this.analysis,
   });
 
@@ -27,6 +28,9 @@ class PhotoTile extends StatelessWidget {
   final bool isPicked;
   final VoidCallback onTap;
   final VoidCallback onDoubleTap;
+
+  /// Right-click handler — wired to toggle pick on the gallery.
+  final VoidCallback? onSecondaryTap;
   final AnalysisResult? analysis;
 
   @override
@@ -48,6 +52,7 @@ class PhotoTile extends StatelessWidget {
       child: _InstantClick(
         onTap: onTap,
         onDoubleTap: onDoubleTap,
+        onSecondaryTap: onSecondaryTap,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 80),
           decoration: BoxDecoration(
@@ -107,10 +112,12 @@ class _InstantClick extends StatefulWidget {
     required this.onTap,
     required this.onDoubleTap,
     required this.child,
+    this.onSecondaryTap,
   });
 
   final VoidCallback onTap;
   final VoidCallback onDoubleTap;
+  final VoidCallback? onSecondaryTap;
   final Widget child;
 
   @override
@@ -126,13 +133,17 @@ class _InstantClickState extends State<_InstantClick> {
   int _lastDownMs = 0;
 
   void _onPointerDown(PointerDownEvent event) {
-    // Filter to primary mouse button, or any touch / stylus tip.
-    // (For touch events `buttons` is 0, so we let those through.)
-    if (event.kind == PointerDeviceKind.mouse &&
-        (event.buttons & kPrimaryButton) == 0) {
-      return;
+    if (event.kind == PointerDeviceKind.mouse) {
+      // Right-click → fire onSecondaryTap immediately, no double-click
+      // bookkeeping (doesn't share state with primary clicks).
+      if ((event.buttons & kSecondaryButton) != 0) {
+        widget.onSecondaryTap?.call();
+        return;
+      }
+      // Non-primary mouse buttons (middle, back, forward) are ignored.
+      if ((event.buttons & kPrimaryButton) == 0) return;
     }
-
+    // Primary mouse click or touch — apply the manual double-click test.
     final now = DateTime.now().millisecondsSinceEpoch;
     if (now - _lastDownMs < _doubleClickWindowMs) {
       _lastDownMs = 0;

@@ -15,6 +15,7 @@ class Filmstrip extends StatefulWidget {
     required this.picked,
     required this.resultsByCacheKey,
     required this.onTap,
+    this.onSecondaryTap,
   });
 
   final List<Photo> photos;
@@ -22,6 +23,9 @@ class Filmstrip extends StatefulWidget {
   final Set<String> picked;
   final Map<String, AnalysisResult> resultsByCacheKey;
   final ValueChanged<int> onTap;
+
+  /// Right-click handler — toggles pick on the clicked tile.
+  final ValueChanged<int>? onSecondaryTap;
 
   @override
   State<Filmstrip> createState() => _FilmstripState();
@@ -87,6 +91,9 @@ class _FilmstripState extends State<Filmstrip> {
             isPicked: widget.picked.contains(photo.path),
             analysis: widget.resultsByCacheKey[photo.cacheKey],
             onTap: () => widget.onTap(i),
+            onSecondaryTap: widget.onSecondaryTap == null
+                ? null
+                : () => widget.onSecondaryTap!(i),
           );
         },
       ),
@@ -100,6 +107,7 @@ class _FilmstripTile extends StatelessWidget {
     required this.isCursor,
     required this.isPicked,
     required this.onTap,
+    this.onSecondaryTap,
     this.analysis,
   });
 
@@ -107,6 +115,7 @@ class _FilmstripTile extends StatelessWidget {
   final bool isCursor;
   final bool isPicked;
   final VoidCallback onTap;
+  final VoidCallback? onSecondaryTap;
   final AnalysisResult? analysis;
 
   @override
@@ -118,6 +127,11 @@ class _FilmstripTile extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 4),
       child: GestureDetector(
         onTap: onTap,
+        // onSecondaryTapDown fires the moment the right button presses
+        // down (no arena wait — secondary and primary recognizers don't
+        // compete with each other since they handle different buttons).
+        onSecondaryTapDown:
+            onSecondaryTap == null ? null : (_) => onSecondaryTap!(),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 80),
           decoration: BoxDecoration(

@@ -259,6 +259,9 @@ class _PhotoTileConnected extends ConsumerWidget {
         ctrl.setCursor(index);
         context.push('/viewer');
       },
+      // Right-click toggles pick on this specific tile without moving
+      // the cursor — quick mouse-only flow.
+      onSecondaryTap: () => ctrl.togglePickByPath(photo.path),
     );
   }
 }

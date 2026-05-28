@@ -141,8 +141,16 @@ class GalleryController extends _$GalleryController {
   void togglePickCurrent() {
     final photo = state.currentPhoto;
     if (photo == null) return;
+    togglePickByPath(photo.path);
+  }
+
+  /// Toggle pick on a specific photo regardless of cursor position.
+  /// Used by right-click handlers in the grid and filmstrip — the user
+  /// can pick a photo without moving the keyboard cursor away from
+  /// wherever it currently is.
+  void togglePickByPath(String path) {
     final picked = {...state.picked};
-    if (!picked.add(photo.path)) picked.remove(photo.path);
+    if (!picked.add(path)) picked.remove(path);
     state = state.copyWith(picked: picked);
   }
 

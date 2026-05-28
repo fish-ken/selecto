@@ -66,6 +66,10 @@ class ViewerScreen extends ConsumerWidget {
             Expanded(
               child: GestureDetector(
                 onDoubleTap: close, // double-click anywhere to leave
+                // Right-click on the main image toggles pick on the
+                // currently displayed photo (no need to leave the viewer).
+                onSecondaryTapDown: (_) =>
+                    ctrl.togglePickByPath(photo.path),
                 child: Container(
                   color: Colors.black,
                   alignment: Alignment.center,
@@ -95,6 +99,8 @@ class ViewerScreen extends ConsumerWidget {
                 picked: state.picked,
                 resultsByCacheKey: state.results,
                 onTap: ctrl.setCursor,
+                onSecondaryTap: (i) =>
+                    ctrl.togglePickByPath(state.photos[i].path),
               ),
             ),
           ],
