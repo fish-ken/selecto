@@ -155,14 +155,14 @@ class GalleryController extends _$GalleryController {
   void unpickAll() => state = state.copyWith(picked: const {});
 
   /// Auto-select the best shots from analysis results.
-  /// `minSharpness` is on the 0..10 score scale.
-  void selectBest({int? topK, double minSharpness = 4.0}) {
+  /// Picks every photo whose qualityScore is at or above the
+  /// `(1 - topPercentile)` quantile of the current run's scores.
+  void selectBest({double topPercentile = 0.2}) {
     final selector = ref.read(selectBestShotsProvider);
     final best = selector(
       photos: state.photos,
       resultsByCacheKey: state.results,
-      minSharpness: minSharpness,
-      topK: topK,
+      topPercentile: topPercentile,
     );
     state = state.copyWith(picked: best.map((p) => p.path).toSet());
   }
