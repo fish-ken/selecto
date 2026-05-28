@@ -66,10 +66,10 @@ macos/.symlinks/
 # =============================================================
 # Drop *.onnx / *.ort weights into assets/models/ on each machine
 # (they can be hundreds of MB and shouldn't bloat git history).
-assets/models/*.onnx
-assets/models/*.ort
-assets/models/*.bin
-assets/models/*.pt
+# assets/models/*.onnx
+# assets/models/*.ort
+# assets/models/*.bin
+# assets/models/*.pt
 
 # Native ONNX Runtime libs — fetched by the `onnxruntime` pub package
 # on first build; only commit custom GPU/CoreML builds intentionally.
