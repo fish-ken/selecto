@@ -16,6 +16,7 @@ class PhotoTile extends StatelessWidget {
     required this.isCursor,
     required this.isPicked,
     required this.onTap,
+    required this.onDoubleTap,
     this.analysis,
   });
 
@@ -24,6 +25,7 @@ class PhotoTile extends StatelessWidget {
   final bool isCursor;
   final bool isPicked;
   final VoidCallback onTap;
+  final VoidCallback onDoubleTap;
   final AnalysisResult? analysis;
 
   @override
@@ -37,6 +39,7 @@ class PhotoTile extends StatelessWidget {
       padding: const EdgeInsets.all(4),
       child: GestureDetector(
         onTap: onTap,
+        onDoubleTap: onDoubleTap,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 80),
           decoration: BoxDecoration(

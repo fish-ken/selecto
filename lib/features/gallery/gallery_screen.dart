@@ -2,6 +2,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../app/providers.dart';
 import 'gallery_controller.dart';
@@ -128,9 +129,7 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen> {
               onTogglePick: ctrl.togglePickCurrent,
               onPickAll: ctrl.pickAll,
               onUnpickAll: ctrl.unpickAll,
-              onOpenViewer: () {
-                // TODO: push full-screen viewer route
-              },
+              onOpenViewer: () => context.push('/viewer'),
               child: GridView.builder(
                 controller: _scrollCtrl,
                 padding: const EdgeInsets.all(8),
@@ -151,6 +150,10 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen> {
                     isPicked: state.picked.contains(photo.path),
                     analysis: state.results[photo.cacheKey],
                     onTap: () => ctrl.setCursor(i),
+                    onDoubleTap: () {
+                      ctrl.setCursor(i);
+                      context.push('/viewer');
+                    },
                   );
                 },
               ),
