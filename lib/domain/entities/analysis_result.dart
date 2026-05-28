@@ -24,7 +24,7 @@ class AnalysisResult {
 
   final int faceCount;
 
-  /// True if at least one face has closed eyes.
+  /// True if at least one face has closed eyes.asdf
   final bool hasBlink;
 
   final DateTime computedAt;
