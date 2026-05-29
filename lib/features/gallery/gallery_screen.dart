@@ -3,11 +3,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:window_manager/window_manager.dart';
 
 import '../../l10n/l10n.dart';
 import '../settings/settings_dialog.dart';
 import 'gallery_controller.dart';
 import 'gallery_state.dart';
+import 'modifier_keys.dart';
 import 'widgets/gallery_shortcuts.dart';
 import 'widgets/model_picker.dart';
 import 'widgets/photo_tile.dart';
@@ -19,14 +21,34 @@ class GalleryScreen extends ConsumerStatefulWidget {
   ConsumerState<GalleryScreen> createState() => _GalleryScreenState();
 }
 
-class _GalleryScreenState extends ConsumerState<GalleryScreen> {
+class _GalleryScreenState extends ConsumerState<GalleryScreen>
+    with WindowListener {
   final _scrollCtrl = ScrollController();
 
   @override
+  void initState() {
+    super.initState();
+    // Track modifier keys ourselves (see [ModifierKeysNotifier]) and reset
+    // them whenever the window loses focus, so a key-up swallowed by Alt+Tab
+    // / the Windows key / a native dialog can't leave Ctrl "stuck" and turn
+    // ordinary clicks into multi-selection.
+    windowManager.addListener(this);
+    HardwareKeyboard.instance.addHandler(_handleKey);
+  }
+
+  @override
   void dispose() {
+    HardwareKeyboard.instance.removeHandler(_handleKey);
+    windowManager.removeListener(this);
     _scrollCtrl.dispose();
     super.dispose();
   }
+
+  bool _handleKey(KeyEvent event) =>
+      ref.read(modifierKeysProvider.notifier).handle(event);
+
+  @override
+  void onWindowBlur() => ref.read(modifierKeysProvider.notifier).reset();
 
   Future<void> _pickDirectory() async {
     final path = await FilePicker.platform.getDirectoryPath();
@@ -266,10 +288,10 @@ class _PhotoTileConnected extends ConsumerWidget {
       moveToBestShotsLabel: t.tr('moveToBestShots'),
       removeFromBestShotsLabel: t.tr('removeFromBestShots'),
       onTap: () {
-        final keys = HardwareKeyboard.instance;
-        if (keys.isShiftPressed) {
+        final mods = ref.read(modifierKeysProvider);
+        if (mods.shift) {
           ctrl.selectRangeTo(index);
-        } else if (keys.isControlPressed || keys.isMetaPressed) {
+        } else if (mods.toggleSelect) {
           ctrl.toggleSelectAt(index);
         } else {
           ctrl.selectSingle(index);
@@ -409,13 +431,22 @@ class _SnackTextButton extends StatelessWidget {
         minimumSize: Size.zero,
         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
       ),
-      child: Text(
-        label,
-        style: const TextStyle(
-          color: Colors.white,
-          decoration: TextDecoration.underline,
-          decorationColor: Colors.white,
-          fontWeight: FontWeight.w600,
+      // Draw the underline as a container bottom-border instead of
+      // TextDecoration.underline. With mixed-script labels (e.g. Korean
+      // "로그 복사"), the glyphs come from a fallback font whose underline
+      // metrics differ from the Latin font, so the decoration breaks/steps
+      // around the space. A border draws one clean continuous line.
+      child: Container(
+        padding: const EdgeInsets.only(bottom: 2),
+        decoration: const BoxDecoration(
+          border: Border(bottom: BorderSide(color: Colors.white, width: 1.2)),
+        ),
+        child: Text(
+          label,
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.w600,
+          ),
         ),
       ),
     );
