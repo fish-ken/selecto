@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
 import '../../../domain/entities/analysis_result.dart';
@@ -31,6 +32,7 @@ class Filmstrip extends StatefulWidget {
 class _FilmstripState extends State<Filmstrip> {
   static const _itemExtent = 96.0; // tile width + horizontal padding
   final _scrollCtrl = ScrollController();
+  bool _skipNextEnsureVisible = false;
 
   @override
   void initState() {
@@ -43,7 +45,9 @@ class _FilmstripState extends State<Filmstrip> {
   @override
   void didUpdateWidget(Filmstrip old) {
     super.didUpdateWidget(old);
-    if (old.selectedIndex != widget.selectedIndex) {
+    final skip = _skipNextEnsureVisible;
+    _skipNextEnsureVisible = false;
+    if (old.selectedIndex != widget.selectedIndex && !skip) {
       _ensureVisible(widget.selectedIndex);
     }
   }
@@ -67,30 +71,48 @@ class _FilmstripState extends State<Filmstrip> {
     );
   }
 
+  void _handlePointerSignal(PointerSignalEvent event) {
+    if (event is! PointerScrollEvent) return;
+    if (!_scrollCtrl.hasClients) return;
+    final dy = event.scrollDelta.dy;
+    if (dy == 0) return; // horizontal wheels (dx) are handled natively
+    final target = (_scrollCtrl.offset + dy).clamp(
+      _scrollCtrl.position.minScrollExtent,
+      _scrollCtrl.position.maxScrollExtent,
+    );
+    if (target != _scrollCtrl.offset) _scrollCtrl.jumpTo(target);
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Container(
-      color: Colors.black,
-      padding: const EdgeInsets.symmetric(vertical: 6),
-      child: ListView.builder(
-        controller: _scrollCtrl,
-        scrollDirection: Axis.horizontal,
-        itemCount: widget.photos.length,
-        itemExtent: _itemExtent,
-        // Stable items aren't auto-kept-alive — they re-decode on scroll.
-        addAutomaticKeepAlives: false,
-        addRepaintBoundaries: true,
-        itemBuilder: (context, i) {
-          final photo = widget.photos[i];
-          return _FilmstripTile(
-            photo: photo,
-            isCursor: i == widget.selectedIndex,
-            isPicked: widget.picked.contains(photo.path),
-            isInBestShots: isInBestShotsPath(photo.path),
-            analysis: widget.resultsByCacheKey[photo.cacheKey],
-            onTap: () => widget.onTap(i),
-          );
-        },
+    return Listener(
+      onPointerSignal: _handlePointerSignal,
+      child: Container(
+        color: Colors.black,
+        padding: const EdgeInsets.symmetric(vertical: 6),
+        child: ListView.builder(
+          controller: _scrollCtrl,
+          scrollDirection: Axis.horizontal,
+          itemCount: widget.photos.length,
+          itemExtent: _itemExtent,
+          // Stable items aren't auto-kept-alive — they re-decode on scroll.
+          addAutomaticKeepAlives: false,
+          addRepaintBoundaries: true,
+          itemBuilder: (context, i) {
+            final photo = widget.photos[i];
+            return _FilmstripTile(
+              photo: photo,
+              isCursor: i == widget.selectedIndex,
+              isPicked: widget.picked.contains(photo.path),
+              isInBestShots: isInBestShotsPath(photo.path),
+              analysis: widget.resultsByCacheKey[photo.cacheKey],
+              onTap: () {
+                _skipNextEnsureVisible = true;
+                widget.onTap(i);
+              },
+            );
+          },
+        ),
       ),
     );
   }

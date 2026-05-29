@@ -146,9 +146,13 @@ class PhotoTile extends StatelessWidget {
   }
 }
 
-/// Pointer-down click detector that fires `onTap` the instant a primary
-/// button (mouse) or touch contact lands, with no gesture-arena delay,
-/// and `onDoubleTap` when a second click arrives within ~280 ms.
+/// Lightweight click detector built on a raw `Listener`. The tap fires on
+/// pointer-UP, but only when the pointer moved less than the drag slop
+/// between press and release — so a drag (used to scroll the grid) doesn't
+/// fire a tap on the tile it started on. `onDoubleTap` fires when a second
+/// quick tap lands within ~280 ms. Because it's a raw `Listener` it still
+/// avoids the gesture-arena delay entirely, keeping single-click selection
+/// snappy.
 ///
 /// Why not `GestureDetector`? Because pairing `onTapDown` with
 /// `onDoubleTap` puts the TapGestureRecognizer in arena contention with
@@ -179,12 +183,20 @@ class _InstantClickState extends State<_InstantClick> {
   // jitter. Tweak if needed.
   static const _doubleClickWindowMs = 280;
 
-  int _lastDownMs = 0;
+  // Movement beyond this (logical px) between press and release means the
+  // user was dragging (to scroll the grid), not clicking — suppress the tap
+  // so drag-to-scroll doesn't select the tile the drag started on.
+  static const _dragSlop = 8.0;
+
+  int _lastTapMs = 0;
+  int? _pointer; // id of the primary press we're currently tracking
+  Offset _downPosition = Offset.zero;
+  bool _moved = false;
 
   void _onPointerDown(PointerDownEvent event) {
     if (event.kind == PointerDeviceKind.mouse) {
-      // Right-click → fire onSecondaryTap immediately, no double-click
-      // bookkeeping (doesn't share state with primary clicks).
+      // Right-click → fire the context-menu request immediately, with no
+      // drag/double-click bookkeeping (separate from primary clicks).
       if ((event.buttons & kSecondaryButton) != 0) {
         widget.onSecondaryTapDown?.call(event.position);
         return;
@@ -192,15 +204,35 @@ class _InstantClickState extends State<_InstantClick> {
       // Non-primary mouse buttons (middle, back, forward) are ignored.
       if ((event.buttons & kPrimaryButton) == 0) return;
     }
-    // Primary mouse click or touch — apply the manual double-click test.
+    // Start tracking a potential tap; the decision is made on pointer-up.
+    _pointer = event.pointer;
+    _downPosition = event.position;
+    _moved = false;
+  }
+
+  void _onPointerMove(PointerMoveEvent event) {
+    if (event.pointer != _pointer || _moved) return;
+    if ((event.position - _downPosition).distance > _dragSlop) {
+      _moved = true; // became a drag → no tap on release
+    }
+  }
+
+  void _onPointerUp(PointerUpEvent event) {
+    if (event.pointer != _pointer) return;
+    _pointer = null;
+    if (_moved) return; // it was a drag, not a tap
     final now = DateTime.now().millisecondsSinceEpoch;
-    if (now - _lastDownMs < _doubleClickWindowMs) {
-      _lastDownMs = 0;
+    if (now - _lastTapMs < _doubleClickWindowMs) {
+      _lastTapMs = 0;
       widget.onDoubleTap();
     } else {
-      _lastDownMs = now;
+      _lastTapMs = now;
       widget.onTap();
     }
+  }
+
+  void _onPointerCancel(PointerCancelEvent event) {
+    if (event.pointer == _pointer) _pointer = null;
   }
 
   @override
@@ -208,6 +240,9 @@ class _InstantClickState extends State<_InstantClick> {
     return Listener(
       behavior: HitTestBehavior.opaque,
       onPointerDown: _onPointerDown,
+      onPointerMove: _onPointerMove,
+      onPointerUp: _onPointerUp,
+      onPointerCancel: _onPointerCancel,
       child: widget.child,
     );
   }
