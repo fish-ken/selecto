@@ -18,7 +18,11 @@ class PhotoTile extends StatelessWidget {
     required this.isPicked,
     required this.onTap,
     required this.onDoubleTap,
-    this.onSecondaryTap,
+    required this.moveToBestShotsLabel,
+    required this.removeFromBestShotsLabel,
+    this.onMoveToBestShots,
+    this.onRemoveFromBestShots,
+    this.isInBestShots = false,
     this.analysis,
   });
 
@@ -29,9 +33,54 @@ class PhotoTile extends StatelessWidget {
   final VoidCallback onTap;
   final VoidCallback onDoubleTap;
 
-  /// Right-click handler — wired to toggle pick on the gallery.
-  final VoidCallback? onSecondaryTap;
+  /// Localized context-menu labels, injected by the connector.
+  final String moveToBestShotsLabel;
+  final String removeFromBestShotsLabel;
+
+  /// Right-click context-menu actions. Move = relocate into the folder's
+  /// `BestShots/` subfolder; Remove = move back out to the parent folder.
+  final VoidCallback? onMoveToBestShots;
+  final VoidCallback? onRemoveFromBestShots;
+
+  /// Whether this photo currently lives inside a `BestShots` folder —
+  /// decides which menu item is enabled.
+  final bool isInBestShots;
   final AnalysisResult? analysis;
+
+  Future<void> _showContextMenu(
+    BuildContext context,
+    Offset globalPosition,
+  ) async {
+    final overlay =
+        Overlay.of(context).context.findRenderObject() as RenderBox;
+    final action = await showMenu<_TileMenuAction>(
+      context: context,
+      position: RelativeRect.fromRect(
+        globalPosition & Size.zero,
+        Offset.zero & overlay.size,
+      ),
+      items: [
+        PopupMenuItem(
+          value: _TileMenuAction.moveToBestShots,
+          enabled: !isInBestShots && onMoveToBestShots != null,
+          child: Text(moveToBestShotsLabel),
+        ),
+        PopupMenuItem(
+          value: _TileMenuAction.removeFromBestShots,
+          enabled: isInBestShots && onRemoveFromBestShots != null,
+          child: Text(removeFromBestShotsLabel),
+        ),
+      ],
+    );
+    switch (action) {
+      case _TileMenuAction.moveToBestShots:
+        onMoveToBestShots?.call();
+      case _TileMenuAction.removeFromBestShots:
+        onRemoveFromBestShots?.call();
+      case null:
+        break;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -52,7 +101,7 @@ class PhotoTile extends StatelessWidget {
       child: _InstantClick(
         onTap: onTap,
         onDoubleTap: onDoubleTap,
-        onSecondaryTap: onSecondaryTap,
+        onSecondaryTapDown: (pos) => _showContextMenu(context, pos),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 80),
           decoration: BoxDecoration(
@@ -81,7 +130,29 @@ class PhotoTile extends StatelessWidget {
                     child: Center(child: Icon(Icons.broken_image, size: 24)),
                   ),
                 ),
-                if (isPicked) const _PickedBadge(),
+                if (isPicked)
+                  Positioned.fill(
+                    child: ColoredBox(
+                      color: Theme.of(context)
+                          .colorScheme
+                          .primary
+                          .withValues(alpha: 0.30),
+                    ),
+                  ),
+                if (isInBestShots) const _BestShotsBadge(),
+                if (isPicked)
+                  Positioned(
+                    left: 4,
+                    top: 4,
+                    child: Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.primary,
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(Icons.check, size: 14, color: Colors.white),
+                    ),
+                  ),
                 if (analysis != null)
                   Positioned(
                     left: 4,
@@ -112,12 +183,12 @@ class _InstantClick extends StatefulWidget {
     required this.onTap,
     required this.onDoubleTap,
     required this.child,
-    this.onSecondaryTap,
+    this.onSecondaryTapDown,
   });
 
   final VoidCallback onTap;
   final VoidCallback onDoubleTap;
-  final VoidCallback? onSecondaryTap;
+  final void Function(Offset globalPosition)? onSecondaryTapDown;
   final Widget child;
 
   @override
@@ -137,7 +208,7 @@ class _InstantClickState extends State<_InstantClick> {
       // Right-click → fire onSecondaryTap immediately, no double-click
       // bookkeeping (doesn't share state with primary clicks).
       if ((event.buttons & kSecondaryButton) != 0) {
-        widget.onSecondaryTap?.call();
+        widget.onSecondaryTapDown?.call(event.position);
         return;
       }
       // Non-primary mouse buttons (middle, back, forward) are ignored.
@@ -164,8 +235,10 @@ class _InstantClickState extends State<_InstantClick> {
   }
 }
 
-class _PickedBadge extends StatelessWidget {
-  const _PickedBadge();
+/// Top-right badge indicating the photo lives in a `BestShots` folder
+/// (kept/best). Teal circle distinguishes it from the selection accent.
+class _BestShotsBadge extends StatelessWidget {
+  const _BestShotsBadge();
 
   @override
   Widget build(BuildContext context) {
@@ -174,8 +247,8 @@ class _PickedBadge extends StatelessWidget {
       top: 4,
       child: Container(
         padding: const EdgeInsets.all(4),
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.primary,
+        decoration: const BoxDecoration(
+          color: Colors.teal,
           shape: BoxShape.circle,
         ),
         child: const Icon(Icons.check, size: 14, color: Colors.white),
@@ -203,3 +276,5 @@ class _ScoreChip extends StatelessWidget {
     );
   }
 }
+
+enum _TileMenuAction { moveToBestShots, removeFromBestShots }

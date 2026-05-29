@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Selecto — AI 자동 점수 산정 파이프라인 보고서</title>
+<style>
+  :root {
+    --bg: #0f1115;
+    --panel: #171a21;
+    --panel-2: #1d212b;
+    --border: #2a2f3a;
+    --text: #e6e8ee;
+    --muted: #9aa3b2;
+    --accent: #4fd1c5;
+    --accent-2: #f6c453;
+    --accent-3: #a78bfa;
+    --danger: #f87171;
+    --code-bg: #11141a;
+    --mono: "JetBrains Mono", "Cascadia Code", Consolas, "Courier New", monospace;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, "Segoe UI", "Malgun Gothic", Roboto, sans-serif;
+    line-height: 1.7;
+    font-size: 16px;
+  }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 48px 24px 96px; }
+  header.hero { border-bottom: 1px solid var(--border); padding-bottom: 28px; margin-bottom: 36px; }
+  header.hero .tag {
+    display: inline-block; font-family: var(--mono); font-size: 12px; letter-spacing: .08em;
+    color: var(--accent); border: 1px solid var(--border); border-radius: 999px;
+    padding: 4px 12px; margin-bottom: 16px;
+  }
+  h1 { font-size: 30px; margin: 0 0 8px; letter-spacing: -.01em; }
+  h2 { font-size: 22px; margin: 48px 0 14px; padding-top: 8px; border-top: 1px solid var(--border); }
+  h2 .num { font-family: var(--mono); color: var(--accent); margin-right: 10px; font-size: 18px; }
+  h3 { font-size: 17px; margin: 28px 0 8px; color: #cdd3df; }
+  p { color: var(--text); }
+  .lead { color: var(--muted); font-size: 17px; }
+  code {
+    font-family: var(--mono); font-size: 13.5px; background: var(--code-bg);
+    border: 1px solid var(--border); border-radius: 5px; padding: 1.5px 6px; color: #e8edf6;
+  }
+  pre {
+    background: var(--code-bg); border: 1px solid var(--border); border-radius: 10px;
+    padding: 16px 18px; overflow-x: auto; font-family: var(--mono); font-size: 13px;
+    line-height: 1.6; color: #d7deea;
+  }
+  pre code { background: none; border: none; padding: 0; }
+  .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 20px 22px; margin: 18px 0; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .grid3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 14px; }
+  @media (max-width: 720px) { .grid2, .grid3 { grid-template-columns: 1fr; } }
+  table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 14.5px; }
+  th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { color: var(--accent); font-weight: 600; font-size: 13px; letter-spacing: .03em; }
+  .pill { display: inline-block; font-size: 11.5px; font-family: var(--mono); padding: 2px 9px; border-radius: 999px; border: 1px solid var(--border); }
+  .pill.layer { color: var(--accent); }
+  .pill.io { color: var(--accent-2); }
+  .pill.iso { color: var(--accent-3); }
+  .note { border-left: 3px solid var(--accent); background: var(--panel-2); padding: 12px 16px; border-radius: 0 8px 8px 0; margin: 16px 0; color: #cdd3df; font-size: 14.5px; }
+  .warn { border-left-color: var(--accent-2); }
+  .danger { border-left-color: var(--danger); }
+  .flow { font-family: var(--mono); font-size: 12.5px; line-height: 1.5; color: #cfd6e2; white-space: pre; overflow-x: auto; }
+  .muted { color: var(--muted); }
+  .filepath { font-family: var(--mono); font-size: 12px; color: var(--accent); }
+  ul, ol { padding-left: 22px; }
+  li { margin: 5px 0; }
+  .toc a { color: var(--accent); text-decoration: none; }
+  .toc a:hover { text-decoration: underline; }
+  .toc ol { columns: 2; }
+  @media (max-width: 720px) { .toc ol { columns: 1; } }
+  .formula { font-family: var(--mono); font-size: 15px; color: var(--accent-2); background: var(--panel-2); border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px; margin: 12px 0; overflow-x: auto; }
+  .stage-num { display:inline-block; width:24px; height:24px; line-height:24px; text-align:center; border-radius:50%; background:var(--accent); color:#0b0d10; font-family:var(--mono); font-weight:700; font-size:13px; margin-right:8px; }
+  .tensor { display:flex; gap:4px; flex-wrap:wrap; margin:8px 0; align-items:center; }
+  .tcell { font-family: var(--mono); font-size:12px; padding:6px 10px; border:1px solid var(--border); border-radius:6px; background:var(--panel-2); }
+  .tcell.dim { color: var(--accent-3); border-color: var(--accent-3); }
+  footer { margin-top: 64px; padding-top: 20px; border-top: 1px solid var(--border); color: var(--muted); font-size: 13px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="hero">
+  <span class="tag">SELECTO · 기술 보고서</span>
+  <h1>AI 자동 점수 산정 파이프라인</h1>
+  <p class="lead">사용자가 <strong>Analyze</strong> 버튼을 누른 순간부터 각 사진에 0~10점이 매겨져 화면에 반영되기까지 — 레이어를 가로지르는 전체 흐름과, 이미지가 텐서로 바뀌고 모델 출력이 점수로 디코딩되는 내부 수식을 정리합니다.</p>
+</header>
+
+<div class="panel toc">
+  <strong>목차</strong>
+  <ol>
+    <li><a href="#overview">한눈에 보는 전체 흐름</a></li>
+    <li><a href="#layers">레이어별 책임</a></li>
+    <li><a href="#trigger">① 트리거와 상태 누적</a></li>
+    <li><a href="#concurrency">② 병렬 처리(바운디드 동시성)</a></li>
+    <li><a href="#pool">③ 워커 풀과 아이솔레이트</a></li>
+    <li><a href="#preprocess">④ 전처리: 이미지 → 텐서</a></li>
+    <li><a href="#inference">⑤ 추론(OrtSession.run)</a></li>
+    <li><a href="#decode">⑥ 출력 디코딩: 텐서 → 점수</a></li>
+    <li><a href="#result">⑦ 결과 반영과 best-shot 연계</a></li>
+    <li><a href="#errors">오류 처리</a></li>
+    <li><a href="#invariants">핵심 불변식</a></li>
+  </ol>
+</div>
+
+<!-- overview -->
+<h2 id="overview"><span class="num">00</span>한눈에 보는 전체 흐름</h2>
+<p>점수 산정은 UI → 도메인 유스케이스 → 데이터 리포지토리 → AI 서비스 → 워커 아이솔레이트로 내려가고, 결과는 스트림으로 거슬러 올라옵니다. UI는 ONNX/아이솔레이트를 절대 직접 보지 않습니다.</p>
+<div class="panel">
+<div class="flow">
+ 사용자 ─ Analyze 클릭
+    │
+    ▼  [UI]            GalleryController.analyzeAll()           lib/features/gallery/gallery_controller.dart
+    ▼  [Domain]        AnalyzePhotos.call(photos)               lib/domain/usecases/analyze_photos.dart
+    ▼  [Domain port]   AiAnalysisRepository.analyzeAll()        lib/domain/repositories/ai_analysis_repository.dart
+    ▼  [Data]          AiAnalysisRepositoryImpl  (패스스루)      lib/data/repositories/ai_analysis_repository_impl.dart
+    ▼  [AI facade]     OnnxAiService.analyzeAll()  (동시성 제어) lib/ai/onnx_ai_service.dart
+    ▼  [AI pool]       WorkerPool.dispatch()  (라운드로빈)        lib/ai/worker_pool.dart
+    ╞════════ 아이솔레이트 경계 (스레드 안전성) ════════╡
+    ▼  [Worker]        aiWorkerEntry                            lib/ai/isolate_worker.dart
+         ├─ 바이트 읽기 → ImagePreprocessor.buildTensor()       lib/ai/preprocessing.dart
+         ├─ OrtSession.run(inputs)                              (onnxruntime_v2)
+         └─ decodeScore(outputs, OutputKind)                    lib/ai/output_decoder.dart
+    ╞══════════════════════════════════════════════════╡
+    ▲  AnalysisResult  (qualityScore 0..10 …)                   lib/domain/entities/analysis_result.dart
+    ▲  스트림으로 한 장씩 도착 → state.results[cacheKey] 누적
+    ▲  해당 사진 타일만 리빌드 → 점수/별점 표시
+</div>
+</div>
+
+<!-- layers -->
+<h2 id="layers"><span class="num">01</span>레이어별 책임</h2>
+<table>
+  <thead><tr><th style="width:26%">레이어</th><th>역할</th><th style="width:18%">분류</th></tr></thead>
+  <tbody>
+    <tr><td><code>GalleryController</code></td><td>Analyze 트리거, 결과 스트림 구독, <code>state.results</code> 누적, 모델 전환 시 초기화</td><td><span class="pill layer">UI/상태</span></td></tr>
+    <tr><td><code>AnalyzePhotos</code></td><td>유스케이스. 리포지토리로 위임하는 얇은 진입점(순수 도메인)</td><td><span class="pill layer">도메인</span></td></tr>
+    <tr><td><code>AiAnalysisRepository(Impl)</code></td><td>AI 레이어를 가리는 파사드. 현재 캐싱 비활성 → AI 서비스로 패스스루</td><td><span class="pill layer">데이터</span></td></tr>
+    <tr><td><code>OnnxAiService</code></td><td>워커당 1건만 인플라이트로 두는 바운디드 동시성 팬아웃 + 첫 오류 표면화</td><td><span class="pill iso">AI</span></td></tr>
+    <tr><td><code>WorkerPool</code></td><td>N개 아이솔레이트 생성/핸드셰이크, 요청을 라운드로빈 분배, id↔Completer 매칭</td><td><span class="pill iso">AI</span></td></tr>
+    <tr><td><code>aiWorkerEntry</code></td><td>아이솔레이트 본체. 모델 로드 + 전처리 + 추론 + 디코딩</td><td><span class="pill iso">아이솔레이트</span></td></tr>
+  </tbody>
+</table>
+
+<!-- trigger -->
+<h2 id="trigger"><span class="num">02</span>① 트리거와 상태 누적</h2>
+<p>우상단 <strong>✨ Analyze</strong> 버튼이 <code>analyzeAll()</code>을 호출합니다. 사진이 없거나 이미 분석 중이면 무시합니다. 결과는 <code>Stream</code>으로 한 장씩 도착하며, 그때마다 누적 맵을 갱신합니다. <span class="filepath">gallery_controller.dart</span></p>
+<pre><code>final analyze = ref.read(analyzePhotosProvider);
+state = state.copyWith(analyzing: true, clearError: true);
+
+final running = Map.of(state.results);
+_analyzeSub = analyze(state.photos).listen(
+  (result) {
+    running[result.photoCacheKey] = result;          // cacheKey 로 색인
+    state = state.copyWith(results: Map.unmodifiable(running));  // 한 장 도착 → 갱신
+  },
+  onError: (e, st) { /* 경고 로깅 + 에러 상태 */ },
+  cancelOnError: false,
+  onDone: () {
+    // 한 장도 나오지 않았다면 "0 results" 힌트로 안내
+    state = state.copyWith(analyzing: false);
+  },
+);</code></pre>
+<ul>
+  <li><strong>색인 키는 <code>photoCacheKey</code></strong> = <code>경로::수정시각ms::바이트수</code>. 사진의 내용 동일성을 가리키는 안정 키라, 결과가 정확한 사진에 매칭됩니다.</li>
+  <li>결과 도착은 <strong>입력 순서가 아니라 완료 순서</strong>입니다(빠른 사진이 먼저 점수가 뜸).</li>
+  <li>모델을 바꾸면 <code>selectedModelProvider</code> 리스너가 진행 중 구독을 취소하고 <code>results</code>를 비웁니다 — 화면에 이전 모델 점수가 남지 않습니다.</li>
+</ul>
+
+<!-- concurrency -->
+<h2 id="concurrency"><span class="num">03</span>② 병렬 처리(바운디드 동시성)</h2>
+<p><code>OnnxAiService.analyzeAll</code>은 입력이 5천 장이든 동시 인플라이트 요청을 <strong>워커 수만큼</strong>으로 제한합니다. 워커가 비는 순간에만 다음 사진을 투입하는 "탑업(top-up)" 방식이라 메모리가 입력 크기와 무관하게 평탄합니다. <span class="filepath">onnx_ai_service.dart</span></p>
+<pre><code>final concurrency = _pool.workerCount;
+void scheduleMore() {
+  while (inFlight &lt; concurrency &amp;&amp; nextIndex &lt; photos.length) {
+    final photo = photos[nextIndex++];
+    inFlight++;
+    _pool.dispatch(photo).then((r) =&gt; controller.add(r), onError: …)
+      .whenComplete(() {
+        inFlight--;
+        if (모두 완료) controller.close();   // 첫 오류가 있으면 addError 후 close
+        else scheduleMore();                  // 자리 나면 다음 투입
+      });
+  }
+}</code></pre>
+<div class="note"><strong>백프레셔 유지가 중요합니다.</strong> 이 루프를 <code>Future.wait(photos.map(analyze))</code>로 바꾸면 모든 요청이 한꺼번에 큐에 쌓여 백프레셔가 깨집니다 — CLAUDE.md가 명시적으로 금지하는 패턴입니다.</div>
+
+<!-- pool -->
+<h2 id="pool"><span class="num">04</span>③ 워커 풀과 아이솔레이트</h2>
+<p><code>WorkerPool</code>은 CPU 코어 수에 맞춰 워커 아이솔레이트를 띄우고, 요청을 라운드로빈으로 분배합니다. <span class="filepath">worker_pool.dart</span></p>
+<div class="grid2">
+  <div class="panel">
+    <h3 style="margin-top:0">워커 수</h3>
+    <div class="formula">workerCount = (코어수 − 1).clamp(1, 8)</div>
+    <p class="muted" style="font-size:14px;margin:0">UI 스레드/컴포지터용으로 한 코어를 비우고, 메모리 관리를 위해 최대 8로 캡.</p>
+  </div>
+  <div class="panel">
+    <h3 style="margin-top:0">요청 추적</h3>
+    <p class="muted" style="font-size:14px;margin:0">요청마다 정수 <code>id</code> 부여 → <code>_pending[id] = Completer</code>. 워커가 같은 <code>id</code>로 응답하면 해당 Completer를 완료. 모든 워커가 <strong>하나의 ReceivePort</strong>를 공유합니다.</p>
+  </div>
+</div>
+<p>각 워커는 시작 시 <code>WorkerInit</code>으로 <strong>선택된 <code>ModelConfig</code> 전체</strong>(경로·전처리·출력 종류)를 받습니다. 모델을 로드한 뒤 <code>WorkerReady</code> 핸드셰이크를 보내야 풀이 요청을 큐잉합니다. <span class="filepath">isolate_worker.dart</span></p>
+<pre><code>final model = init.model;
+final session = OrtSession.fromBuffer(await File(model.path).readAsBytes(), opts);
+
+// 입력 텐서 이름을 그래프에서 자동 발견 ('input' 하드코딩이 과거 #1 실패 원인)
+final inputName = session.inputNames.isNotEmpty ? session.inputNames.first : 'input';
+
+final preprocessor = ImagePreprocessor(config: model.preprocess);
+final outputKind   = model.output;</code></pre>
+
+<!-- preprocess -->
+<h2 id="preprocess"><span class="num">05</span>④ 전처리: 이미지 → 텐서</h2>
+<p>워커는 사진 바이트를 디코드해 모델이 요구하는 모양·정규화의 <code>Float32</code> 텐서로 만듭니다. <span class="filepath">preprocessing.dart</span></p>
+<p><span class="stage-num">1</span><strong>디코드</strong> — <code>img.decodeImage(bytes)</code>. 실패(손상/미지원 코덱) 시 <code>null</code> 반환 → 그 사진은 "decode failed"로 처리.</p>
+<p><span class="stage-num">2</span><strong>리사이즈</strong> — <code>inputSize × inputSize</code>(기본 224)로 선형 보간.</p>
+<p><span class="stage-num">3</span><strong>정규화</strong> — 채널 정규화 방식은 모델 설정값:</p>
+<table>
+  <thead><tr><th>방식</th><th>수식</th><th>대상</th></tr></thead>
+  <tbody>
+    <tr><td><code>imagenet</code></td><td class="mono">(x − mean[c]) / std[c]<br><span class="muted">mean=[.485,.456,.406], std=[.229,.224,.225]</span></td><td>MANIQA 등 PyTorch 계열</td></tr>
+    <tr><td><code>mobilenet</code></td><td class="mono">x · 2 − 1 &nbsp;<span class="muted">(0..1 → −1..1)</span></td><td>NIMA / MobileNet 계열</td></tr>
+    <tr><td><code>unit</code></td><td class="mono">x &nbsp;<span class="muted">(0..1 그대로)</span></td><td>일반</td></tr>
+  </tbody>
+</table>
+<p class="muted" style="font-size:13.5px"><code>x</code>는 <code>image</code> 패키지의 <code>rNormalized</code> 등 0..1 값입니다.</p>
+<p><span class="stage-num">4</span><strong>패킹</strong> — 메모리 레이아웃에 맞춰 배열에 채워 넣습니다.</p>
+<div class="grid2">
+  <div class="panel">
+    <h3 style="margin-top:0">NCHW <span class="muted">(PyTorch)</span></h3>
+    <div class="tensor">
+      <span class="tcell dim">1</span><span class="tcell">3</span><span class="tcell">224</span><span class="tcell">224</span>
+    </div>
+    <p class="muted" style="font-size:13px;margin:0">채널이 가장 느리게 변하는 축. <code>[R평면 | G평면 | B평면]</code> 순으로 저장.</p>
+  </div>
+  <div class="panel">
+    <h3 style="margin-top:0">NHWC <span class="muted">(TF/Keras)</span></h3>
+    <div class="tensor">
+      <span class="tcell dim">1</span><span class="tcell">224</span><span class="tcell">224</span><span class="tcell">3</span>
+    </div>
+    <p class="muted" style="font-size:13px;margin:0">채널이 가장 빠르게 변하는 축. 픽셀마다 <code>R,G,B</code> 인터리브.</p>
+  </div>
+</div>
+
+<!-- inference -->
+<h2 id="inference"><span class="num">06</span>⑤ 추론 (OrtSession.run)</h2>
+<p>전처리 텐서를 ONNX Runtime 입력 텐서로 감싸 실행합니다. 끝나면 입력/출력 텐서를 즉시 <code>release()</code>해 네이티브 메모리 누수를 막습니다. <span class="filepath">isolate_worker.dart</span></p>
+<pre><code>final inputTensor = OrtValueTensor.createTensorWithDataList(pre.tensor, pre.shape);
+final inputs = &lt;String, OrtValue&gt;{inputName: inputTensor};   // 그래프에서 찾은 이름 사용
+final outputs = session.run(runOptions, inputs);
+
+final score = decodeScore(outputs, outputKind);
+
+inputTensor.release();
+for (final o in outputs) { o?.release(); }</code></pre>
+
+<!-- decode -->
+<h2 id="decode"><span class="num">07</span>⑥ 출력 디코딩: 텐서 → 점수</h2>
+<p>모델 출력을 0~10 품질 점수로 바꾸는 단계입니다. <strong>어떤 방식으로 디코딩할지는 모델 설정(<code>OutputKind</code>)이 선언</strong>하므로 런타임 추측이 없습니다. <span class="filepath">output_decoder.dart</span></p>
+<pre><code>DecodedScore decodeScore(List&lt;OrtValue?&gt; outputs, OutputKind kind) =&gt; switch (kind) {
+  OutputKind.nimaDistribution =&gt; _decodeNima(flat),    // NIMA
+  OutputKind.scalarSigmoid    =&gt; _decodeScalar(flat),  // MANIQA/MUSIQ/CLIP-IQA
+};</code></pre>
+
+<h3>NIMA — 10-bin 분포 → 평균 의견 점수(MOS)</h3>
+<p>출력은 길이 10의 소프트맥스 확률 분포입니다. 각 bin은 1~10점에 대한 확률이므로 가중 평균이 점수가 됩니다.</p>
+<div class="formula">MOS = Σ<sub>i=0..9</sub> (i + 1) · p<sub>i</sub> &nbsp;&nbsp;∈ [1, 10]</div>
+<p><strong>예시</strong> — 분포가 7~8점에 몰린 경우:</p>
+<pre><code>p = [.01,.01,.02,.03,.05,.10,.18,.30,.20,.10]
+MOS = 1·.01 + 2·.01 + … + 8·.30 + 9·.20 + 10·.10 ≈ 7.4  →  qualityScore = 7.4</code></pre>
+
+<h3>Scalar — 시그모이드 스칼라 ×10</h3>
+<p>MANIQA 등은 0..1 범위의 단일 실수를 출력합니다. 10을 곱해 척도를 맞춥니다. 추가 출력이 있으면 sharpness/faceCount/blink를 채웁니다.</p>
+<div class="formula">qualityScore = clamp(flat[0] · 10, 0, 10)</div>
+<pre><code>flat[0] = 0.83  →  qualityScore = 8.3
+// 선택적: flat[1]→sharpness×10, flat[2]→faceCount(반올림), flat[3]→blink(&gt;0.5)</code></pre>
+
+<div class="note warn"><strong>0점은 "분석 안 됨 / 디코드 실패" 센티넬</strong>입니다. 실제 추론 결과는 0에 도달할 수 없습니다(NIMA MOS는 하한 1, 스칼라는 양의 시그모이드 ×10). 그래서 0 = 미분석으로 안전하게 구분됩니다.</div>
+
+<!-- result -->
+<h2 id="result"><span class="num">08</span>⑦ 결과 반영과 best-shot 연계</h2>
+<p>워커는 <code>InferenceSuccess</code>로 점수를 돌려주고, 풀은 이를 <code>AnalysisResult</code>로 만들어 해당 요청의 Completer를 완료합니다. <span class="filepath">worker_pool.dart</span> · <span class="filepath">analysis_result.dart</span></p>
+<pre><code>AnalysisResult(
+  photoCacheKey: …,      // 사진 매칭 키
+  qualityScore: …,       // 0..10, 높을수록 좋음 (best-shot 선별 기준)
+  sharpnessScore: …,     // 0(흐림)..10(선명)
+  faceCount: …,
+  hasBlink: …,
+  computedAt: DateTime.now(),
+)</code></pre>
+<ul>
+  <li>컨트롤러가 이 결과를 <code>state.results[cacheKey]</code>에 넣으면, <strong>해당 <code>cacheKey</code>를 구독하는 그 사진 타일 하나만</strong> 리빌드되어 점수가 표시됩니다(수천 장에서도 전체 리빌드 없음).</li>
+  <li>이렇게 쌓인 <code>qualityScore</code>가 곧 <strong>Select Best Shots(★)</strong>의 입력입니다. 상위 분위수 임계값 이상을 자동 선택합니다 — 자세한 내용은 <span class="filepath">docs/select-behavior.html</span>.</li>
+</ul>
+
+<!-- errors -->
+<h2 id="errors"><span class="num">09</span>오류 처리</h2>
+<table>
+  <thead><tr><th style="width:34%">지점</th><th>처리</th></tr></thead>
+  <tbody>
+    <tr><td>이미지 디코드 실패</td><td>전처리가 <code>null</code> → 워커가 <code>InferenceError('decode failed')</code> 전송</td></tr>
+    <tr><td>추론 중 예외</td><td><code>try/catch</code>로 잡아 <code>InferenceError(e.toString())</code> 전송(아이솔레이트 경계 직렬화)</td></tr>
+    <tr><td>워커 오류 수신</td><td>풀이 해당 Completer를 <code>StateError</code>로 완료 → 서비스가 첫 오류를 기억</td></tr>
+    <tr><td>서비스 팬아웃</td><td>개별 실패는 로깅 후 계속 진행, <strong>모두 끝난 뒤 첫 오류를 스트림에 addError</strong></td></tr>
+    <tr><td>결과 0개</td><td>예외 없이 한 장도 안 나오면 컨트롤러가 "모델 입력 이름/모양 확인" 힌트 표시</td></tr>
+  </tbody>
+</table>
+
+<!-- invariants -->
+<h2 id="invariants"><span class="num">10</span>핵심 불변식</h2>
+<div class="grid3">
+  <div class="panel"><h3 style="margin-top:0">세션 격리</h3><p class="muted" style="font-size:13.5px;margin:0"><code>OrtSession</code>은 스레드 안전하지 않음. <strong>아이솔레이트당 정확히 1개</strong>, 생애 내내 공유·이동 금지.</p></div>
+  <div class="panel"><h3 style="margin-top:0">바운디드 동시성</h3><p class="muted" style="font-size:13.5px;margin:0">인플라이트 ≤ <code>workerCount</code>. 입력 규모와 무관하게 메모리 평탄.</p></div>
+  <div class="panel"><h3 style="margin-top:0">설정이 진실</h3><p class="muted" style="font-size:13.5px;margin:0">전처리·출력 디코딩은 <code>ModelConfig</code>가 선언. 파일명 추측 없음.</p></div>
+  <div class="panel"><h3 style="margin-top:0">캐시 동일성</h3><p class="muted" style="font-size:13.5px;margin:0"><code>cacheKey = 경로::mtime::bytes</code>. 결과 매칭의 안정 키.</p></div>
+  <div class="panel"><h3 style="margin-top:0">네이티브 정리</h3><p class="muted" style="font-size:13.5px;margin:0">run 직후 입력/출력 텐서 <code>release()</code> — 누수 방지.</p></div>
+  <div class="panel"><h3 style="margin-top:0">완료 순 스트리밍</h3><p class="muted" style="font-size:13.5px;margin:0">입력 순서가 아닌 완료 순서로 점수 도착.</p></div>
+</div>
+
+<footer>
+  Selecto · AI 자동 점수 산정 파이프라인 보고서 · 근거 코드:
+  <span class="filepath">gallery_controller.dart</span>,
+  <span class="filepath">analyze_photos.dart</span>,
+  <span class="filepath">onnx_ai_service.dart</span>,
+  <span class="filepath">worker_pool.dart</span>,
+  <span class="filepath">isolate_worker.dart</span>,
+  <span class="filepath">preprocessing.dart</span>,
+  <span class="filepath">output_decoder.dart</span>
+</footer>
+
+</div>
+</body>
+</html>

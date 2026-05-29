@@ -7,6 +7,7 @@ class GalleryState {
     this.rootPath,
     this.photos = const [],
     this.selectedIndex = 0,
+    this.selectionAnchor = 0,
     this.picked = const {},
     this.results = const {},
     this.scanning = false,
@@ -20,6 +21,10 @@ class GalleryState {
 
   /// Index of the photo with the keyboard cursor.
   final int selectedIndex;
+
+  /// Fixed anchor index for shift-range selection. Repeated shift-clicks
+  /// re-range from this start point until a plain/ctrl click moves it.
+  final int selectionAnchor;
 
   /// Paths of photos the user has explicitly picked (Space).
   final Set<String> picked;
@@ -42,6 +47,7 @@ class GalleryState {
     String? rootPath,
     List<Photo>? photos,
     int? selectedIndex,
+    int? selectionAnchor,
     Set<String>? picked,
     Map<String, AnalysisResult>? results,
     bool? scanning,
@@ -54,6 +60,7 @@ class GalleryState {
       rootPath: rootPath ?? this.rootPath,
       photos: photos ?? this.photos,
       selectedIndex: selectedIndex ?? this.selectedIndex,
+      selectionAnchor: selectionAnchor ?? this.selectionAnchor,
       picked: picked ?? this.picked,
       results: results ?? this.results,
       scanning: scanning ?? this.scanning,

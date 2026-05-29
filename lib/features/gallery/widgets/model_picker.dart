@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../ai/model_configs/model_configs.dart';
 import '../../../app/providers.dart';
+import '../../../l10n/l10n.dart';
 
 /// AppBar control that lists the bundled models (see [kModelConfigs]) by
 /// their display [ModelConfig.name] and lets the user switch the active
@@ -15,13 +16,14 @@ class ModelPicker extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final models = ref.watch(availableModelsProvider);
     final selected = ref.watch(selectedModelProvider);
+    final t = ref.watch(stringsProvider);
 
     if (models.isEmpty) {
-      return const Padding(
-        padding: EdgeInsets.symmetric(horizontal: 16),
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
         child: Tooltip(
-          message: 'No models configured',
-          child: Icon(Icons.error_outline),
+          message: t.tr('noModelsConfigured'),
+          child: const Icon(Icons.error_outline),
         ),
       );
     }
@@ -32,7 +34,7 @@ class ModelPicker extends ConsumerWidget {
         const Icon(Icons.memory, size: 18),
         const SizedBox(width: 6),
         PopupMenuButton<ModelConfig>(
-          tooltip: 'Choose AI model',
+          tooltip: t.tr('chooseModel'),
           initialValue: selected,
           onSelected: (m) =>
               ref.read(selectedModelProvider.notifier).select(m),

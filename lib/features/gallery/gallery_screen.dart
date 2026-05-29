@@ -4,6 +4,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../l10n/l10n.dart';
+import '../settings/settings_dialog.dart';
 import 'gallery_controller.dart';
 import 'gallery_state.dart';
 import 'widgets/gallery_shortcuts.dart';
@@ -41,6 +43,7 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen> {
       if (err != null && err != prev?.error) {
         final messenger = ScaffoldMessenger.maybeOf(context);
         final stack = next.errorStack;
+        final t = ref.read(stringsProvider);
         messenger?.showSnackBar(
           SnackBar(
             backgroundColor: Theme.of(context).colorScheme.errorContainer,
@@ -49,21 +52,22 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen> {
               children: [
                 Expanded(
                   child: Text(
-                    'Error: $err',
+                    t.tr('errorPrefix', {'message': err.toString()}),
                     style: const TextStyle(color: Colors.white),
                   ),
                 ),
                 _SnackTextButton(
-                  label: 'Copy Log',
+                  label: t.tr('copyLog'),
                   onPressed: () => _copyErrorLog(
                     context: context,
                     messenger: messenger,
                     error: err,
                     stack: stack,
+                    confirmation: t.tr('logCopied'),
                   ),
                 ),
                 _SnackTextButton(
-                  label: 'Dismiss',
+                  label: t.tr('dismiss'),
                   onPressed: messenger.hideCurrentSnackBar,
                 ),
               ],
@@ -97,18 +101,18 @@ class _GalleryAppBar extends ConsumerWidget implements PreferredSizeWidget {
           hasPhotos: s.photos.isNotEmpty,
           analyzing: s.analyzing,
           hasResults: s.results.isNotEmpty,
-          pickedCount: s.picked.length,
         )));
     final ctrl = ref.read(galleryControllerProvider.notifier);
+    final t = ref.watch(stringsProvider);
 
     return AppBar(
-      title: Text(s.rootPath ?? 'Selecto'),
+      title: Text(s.rootPath ?? t.tr('appTitle')),
       actions: [
         const ModelPicker(),
         const SizedBox(width: 8),
         Builder(
           builder: (context) => IconButton(
-            tooltip: 'Open folder',
+            tooltip: t.tr('openFolder'),
             onPressed: () async {
               final path = await FilePicker.platform.getDirectoryPath();
               if (path == null) return;
@@ -120,7 +124,7 @@ class _GalleryAppBar extends ConsumerWidget implements PreferredSizeWidget {
           ),
         ),
         IconButton(
-          tooltip: 'Analyze',
+          tooltip: t.tr('analyze'),
           onPressed: !s.hasPhotos || s.analyzing ? null : ctrl.analyzeAll,
           icon: s.analyzing
               ? const SizedBox(
@@ -131,42 +135,20 @@ class _GalleryAppBar extends ConsumerWidget implements PreferredSizeWidget {
               : const Icon(Icons.auto_awesome),
         ),
         IconButton(
-          tooltip: 'Select best shots (top 20%)',
+          tooltip: t.tr('selectBest'),
           onPressed: !s.hasResults ? null : ctrl.selectBest,
           icon: const Icon(Icons.star),
         ),
         Builder(
           builder: (context) => IconButton(
-            tooltip: s.pickedCount == 0
-                ? 'Move selected to BestShots (none selected)'
-                : 'Move ${s.pickedCount} selected to BestShots folder',
-            onPressed: s.pickedCount == 0
-                ? null
-                : () => _moveSelectedToBestShots(context, ctrl),
-            icon: const Icon(Icons.drive_file_move_outline),
+            icon: const Icon(Icons.settings),
+            tooltip: t.tr('settings'),
+            onPressed: () => SettingsDialog.show(context),
           ),
         ),
       ],
     );
   }
-}
-
-/// Moves the picked photos into the `BestShots` subfolder and reports the
-/// outcome via SnackBar. Errors propagate through the controller's state
-/// and are shown by the listener in [_GalleryScreenState.build].
-Future<void> _moveSelectedToBestShots(
-  BuildContext context,
-  GalleryController ctrl,
-) async {
-  final messenger = ScaffoldMessenger.maybeOf(context);
-  final moved = await ctrl.moveSelectedToBestShots();
-  if (moved <= 0) return; // Nothing moved (or all failed → error SnackBar).
-  messenger?.showSnackBar(
-    SnackBar(
-      content: Text('Moved $moved photo${moved == 1 ? '' : 's'} to BestShots'),
-      duration: const Duration(seconds: 3),
-    ),
-  );
 }
 
 /// Body — empty state vs. grid. Watches only what the body decision needs.
@@ -273,6 +255,7 @@ class _PhotoTileConnected extends ConsumerWidget {
       galleryControllerProvider.select((s) => s.results[photo.cacheKey]),
     );
     final ctrl = ref.read(galleryControllerProvider.notifier);
+    final t = ref.watch(stringsProvider);
 
     return PhotoTile(
       photo: photo,
@@ -280,40 +263,90 @@ class _PhotoTileConnected extends ConsumerWidget {
       isCursor: isCursor,
       isPicked: isPicked,
       analysis: analysis,
-      onTap: () => ctrl.setCursor(index),
+      moveToBestShotsLabel: t.tr('moveToBestShots'),
+      removeFromBestShotsLabel: t.tr('removeFromBestShots'),
+      onTap: () {
+        final keys = HardwareKeyboard.instance;
+        if (keys.isShiftPressed) {
+          ctrl.selectRangeTo(index);
+        } else if (keys.isControlPressed || keys.isMetaPressed) {
+          ctrl.toggleSelectAt(index);
+        } else {
+          ctrl.selectSingle(index);
+        }
+      },
       onDoubleTap: () {
         ctrl.setCursor(index);
         context.push('/viewer');
       },
-      // Right-click toggles pick on this specific tile without moving
-      // the cursor — quick mouse-only flow.
-      onSecondaryTap: () => ctrl.togglePickByPath(photo.path),
+      // Right-click opens a context menu to move this photo (or the whole
+      // current selection, if this photo is part of it) into / out of the
+      // folder's BestShots subfolder.
+      isInBestShots: isInBestShotsPath(photo.path),
+      onMoveToBestShots: () =>
+          _relocate(context, ref, photo.path, toBestShots: true),
+      onRemoveFromBestShots: () =>
+          _relocate(context, ref, photo.path, toBestShots: false),
+    );
+  }
+
+  /// Resolves the action target (the whole selection when [path] is part of
+  /// it, otherwise just this photo), relocates via the controller, and
+  /// reports the count moved. Errors surface through the controller's state
+  /// listener in [_GalleryScreenState.build].
+  Future<void> _relocate(
+    BuildContext context,
+    WidgetRef ref,
+    String path, {
+    required bool toBestShots,
+  }) async {
+    final ctrl = ref.read(galleryControllerProvider.notifier);
+    final picked = ref.read(galleryControllerProvider).picked;
+    final targets = picked.contains(path) ? picked.toList() : [path];
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    final t = ref.read(stringsProvider);
+
+    final moved = toBestShots
+        ? await ctrl.moveToBestShots(targets)
+        : await ctrl.removeFromBestShots(targets);
+    if (moved <= 0) return;
+
+    messenger?.showSnackBar(
+      SnackBar(
+        content: Text(
+          toBestShots
+              ? t.tr('movedToBestShots', {'count': moved.toString()})
+              : t.tr('movedOutOfBestShots', {'count': moved.toString()}),
+        ),
+        duration: const Duration(seconds: 2),
+      ),
     );
   }
 }
 
-class _EmptyState extends StatelessWidget {
+class _EmptyState extends ConsumerWidget {
   const _EmptyState({required this.scanning, required this.onPick});
   final bool scanning;
   final VoidCallback onPick;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     if (scanning) {
       return const Center(child: CircularProgressIndicator());
     }
+    final t = ref.watch(stringsProvider);
     return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
           const Icon(Icons.photo_library_outlined, size: 64),
           const SizedBox(height: 16),
-          const Text('No folder open'),
+          Text(t.tr('noFolderOpen')),
           const SizedBox(height: 16),
           FilledButton.icon(
             onPressed: onPick,
             icon: const Icon(Icons.folder_open),
-            label: const Text('Choose folder'),
+            label: Text(t.tr('chooseFolder')),
           ),
         ],
       ),
@@ -336,16 +369,21 @@ class _StatusBar extends ConsumerWidget {
           picked: s.picked.length,
           analyzed: s.results.length,
         )));
+    final t = ref.watch(stringsProvider);
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
       color: Theme.of(context).colorScheme.surfaceContainerHighest,
       child: Row(
         children: [
-          if (s.scanning) const Text('Scanning… ') else Text('${s.total} photos  '),
-          Text('· ${s.picked} picked  '),
-          if (s.analyzed > 0) Text('· ${s.analyzed} analyzed  '),
-          if (s.analyzing) const Text('· inferring…'),
+          if (s.scanning)
+            Text('${t.tr('scanning')} ')
+          else
+            Text('${t.tr('photosCount', {'count': s.total.toString()})}  '),
+          Text('${t.tr('selectedCount', {'count': s.picked.toString()})}  '),
+          if (s.analyzed > 0)
+            Text('${t.tr('analyzedCount', {'count': s.analyzed.toString()})}  '),
+          if (s.analyzing) Text(t.tr('inferring')),
         ],
       ),
     );
@@ -391,6 +429,7 @@ Future<void> _copyErrorLog({
   required ScaffoldMessengerState? messenger,
   required Object error,
   required StackTrace? stack,
+  required String confirmation,
 }) async {
   final buffer = StringBuffer()
     ..writeln('# Selecto — Error log')
@@ -411,7 +450,7 @@ Future<void> _copyErrorLog({
     ?..hideCurrentSnackBar()
     ..showSnackBar(
       SnackBar(
-        content: const Text('Error log copied to clipboard'),
+        content: Text(confirmation),
         duration: const Duration(seconds: 2),
         backgroundColor: Theme.of(context).colorScheme.inverseSurface,
       ),

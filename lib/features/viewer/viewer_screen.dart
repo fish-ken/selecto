@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../l10n/l10n.dart';
 import '../gallery/gallery_controller.dart';
 import 'widgets/filmstrip.dart';
 import 'widgets/viewer_shortcuts.dart';
@@ -30,6 +31,7 @@ class ViewerScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(galleryControllerProvider);
     final ctrl = ref.read(galleryControllerProvider.notifier);
+    final t = ref.watch(stringsProvider);
 
     void close() {
       // Use pop when possible (preserves underlying gallery state).
@@ -59,11 +61,15 @@ class ViewerScreen extends ConsumerWidget {
         child: Column(
           children: [
             _TopBar(
-              total: state.photos.length,
-              index: state.selectedIndex,
               isPicked: state.picked.contains(photo.path),
               fileName: photo.path.split(RegExp(r'[\\/]')).last,
               onClose: close,
+              closeTooltip: t.tr('viewerClose'),
+              selectedLabel: t.tr('selected'),
+              positionLabel: t.tr('viewerPosition', {
+                'index': (state.selectedIndex + 1).toString(),
+                'total': state.photos.length.toString(),
+              }),
             ),
             Expanded(
               child: _ZoomableImage(
@@ -243,18 +249,20 @@ class _ZoomableImageState extends State<_ZoomableImage>
 
 class _TopBar extends StatelessWidget {
   const _TopBar({
-    required this.total,
-    required this.index,
     required this.isPicked,
     required this.fileName,
     required this.onClose,
+    required this.closeTooltip,
+    required this.selectedLabel,
+    required this.positionLabel,
   });
 
-  final int total;
-  final int index;
   final bool isPicked;
   final String fileName;
   final VoidCallback onClose;
+  final String closeTooltip;
+  final String selectedLabel;
+  final String positionLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -264,7 +272,7 @@ class _TopBar extends StatelessWidget {
       child: Row(
         children: [
           IconButton(
-            tooltip: 'Close (Esc)',
+            tooltip: closeTooltip,
             icon: const Icon(Icons.close, color: Colors.white),
             onPressed: onClose,
           ),
@@ -279,12 +287,12 @@ class _TopBar extends StatelessWidget {
           if (isPicked) ...[
             const Icon(Icons.check_circle, color: Colors.tealAccent, size: 18),
             const SizedBox(width: 6),
-            const Text('Picked',
-                style: TextStyle(color: Colors.tealAccent, fontSize: 12)),
+            Text(selectedLabel,
+                style: const TextStyle(color: Colors.tealAccent, fontSize: 12)),
             const SizedBox(width: 16),
           ],
           Text(
-            '${index + 1} / $total',
+            positionLabel,
             style: const TextStyle(color: Colors.white54, fontSize: 12),
           ),
         ],

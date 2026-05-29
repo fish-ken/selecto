@@ -5,6 +5,7 @@ import 'package:path/path.dart' as p;
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import '../../app/providers.dart';
+import '../../domain/entities/analysis_result.dart';
 import '../../domain/entities/photo.dart';
 import 'gallery_state.dart';
 
@@ -43,6 +44,7 @@ class GalleryController extends _$GalleryController {
       rootPath: rootPath,
       photos: const [],
       selectedIndex: 0,
+      selectionAnchor: 0,
       picked: const {},
       results: const {},
       scanning: true,
@@ -132,6 +134,46 @@ class GalleryController extends _$GalleryController {
     state = state.copyWith(selectedIndex: next);
   }
 
+  /// Plain click — make [index] the sole selection and the cursor/anchor.
+  void selectSingle(int index) {
+    if (state.photos.isEmpty) return;
+    final i = index.clamp(0, state.photos.length - 1);
+    state = state.copyWith(
+      selectedIndex: i,
+      selectionAnchor: i,
+      picked: {state.photos[i].path},
+    );
+  }
+
+  /// Ctrl/Cmd+click — toggle [index] in the selection; it becomes the anchor.
+  void toggleSelectAt(int index) {
+    if (state.photos.isEmpty) return;
+    final i = index.clamp(0, state.photos.length - 1);
+    final path = state.photos[i].path;
+    final picked = {...state.picked};
+    if (!picked.add(path)) picked.remove(path);
+    state = state.copyWith(
+      selectedIndex: i,
+      selectionAnchor: i,
+      picked: picked,
+    );
+  }
+
+  /// Shift+click — select the contiguous range from the anchor to [index]
+  /// (replacing the selection). The anchor stays fixed so repeated
+  /// shift-clicks re-range from the same start.
+  void selectRangeTo(int index) {
+    if (state.photos.isEmpty) return;
+    final i = index.clamp(0, state.photos.length - 1);
+    final anchor = state.selectionAnchor.clamp(0, state.photos.length - 1);
+    final lo = i < anchor ? i : anchor;
+    final hi = i < anchor ? anchor : i;
+    final range = <String>{
+      for (var k = lo; k <= hi; k++) state.photos[k].path,
+    };
+    state = state.copyWith(selectedIndex: i, picked: range);
+  }
+
   void togglePickCurrent() {
     final photo = state.currentPhoto;
     if (photo == null) return;
@@ -160,9 +202,9 @@ class GalleryController extends _$GalleryController {
   /// Picks every photo whose qualityScore is at or above the
   /// `(1 - topPercentile)` quantile of the current run's scores.
   ///
-  /// Existing picks are preserved — the selection is *added* to whatever
-  /// the user has already chosen by hand. To start clean, call
-  /// [unpickAll] first.
+  /// Replaces the current selection with exactly the best shots — the
+  /// multi-selection is switched to the best set, discarding any picks the
+  /// user had chosen by hand.
   void selectBest({double topPercentile = 0.2}) {
     final selector = ref.read(selectBestShotsProvider);
     final best = selector(
@@ -171,70 +213,102 @@ class GalleryController extends _$GalleryController {
       topPercentile: topPercentile,
     );
     state = state.copyWith(
-      picked: {...state.picked, ...best.map((p) => p.path)},
+      picked: best.map((p) => p.path).toSet(),
+      selectionAnchor: 0,
     );
   }
 
-  /// Move every picked photo into a `BestShots` subfolder of the currently
-  /// open directory (created if missing), then drop the moved photos from
-  /// the in-memory gallery so they don't reappear under the new location.
-  ///
-  /// Returns the number of files actually moved. Per-file failures are
-  /// logged and surfaced via [GalleryState.error]; the successfully moved
-  /// files are still removed from state.
-  Future<int> moveSelectedToBestShots() async {
-    final root = state.rootPath;
-    if (root == null || state.picked.isEmpty) return 0;
+  /// Move [paths] into a `BestShots` subfolder of their current directory
+  /// (created if missing). Photos STAY in the gallery with their path
+  /// updated in place; analysis results and picks are re-keyed to the new
+  /// path. Photos already inside a BestShots folder are skipped. Returns
+  /// the number actually moved.
+  Future<int> moveToBestShots(Iterable<String> paths) =>
+      _relocate(paths, toBestShots: true);
 
+  /// Move [paths] out of their `BestShots` folder back up to the parent
+  /// directory. Photos not inside a BestShots folder are skipped. Returns
+  /// the number actually moved.
+  Future<int> removeFromBestShots(Iterable<String> paths) =>
+      _relocate(paths, toBestShots: false);
+
+  Future<int> _relocate(
+    Iterable<String> paths, {
+    required bool toBestShots,
+  }) async {
+    final targets = paths.toSet();
+    if (targets.isEmpty) return 0;
     final repo = ref.read(photoRepositoryProvider);
-    final destDir = p.join(root, 'BestShots');
 
-    final toMove =
-        state.photos.where((ph) => state.picked.contains(ph.path)).toList();
-
-    final movedPaths = <String>{};
+    final photos = [...state.photos];
+    final results = {...state.results};
+    final picked = {...state.picked};
+    var moved = 0;
     Object? lastError;
     StackTrace? lastStack;
-    for (final photo in toMove) {
+
+    for (var i = 0; i < photos.length; i++) {
+      final photo = photos[i];
+      if (!targets.contains(photo.path)) continue;
+      // Skip no-ops — already in the desired location.
+      if (isInBestShotsPath(photo.path) == toBestShots) continue;
+
+      final dir = p.dirname(photo.path);
+      final destDir = toBestShots ? p.join(dir, 'BestShots') : p.dirname(dir);
       try {
-        await repo.movePhoto(photo, destDir);
-        movedPaths.add(photo.path);
+        final newPath = await repo.movePhoto(photo, destDir);
+        final relocated = _withPath(photo, newPath);
+        photos[i] = relocated;
+
+        // Re-key the analysis result onto the new cacheKey so the score
+        // badge follows the photo to its new location.
+        final prev = results.remove(photo.cacheKey);
+        if (prev != null) {
+          results[relocated.cacheKey] = AnalysisResult(
+            photoCacheKey: relocated.cacheKey,
+            qualityScore: prev.qualityScore,
+            sharpnessScore: prev.sharpnessScore,
+            faceCount: prev.faceCount,
+            hasBlink: prev.hasBlink,
+            computedAt: prev.computedAt,
+          );
+        }
+        // Keep any selection pointing at the moved file.
+        if (picked.remove(photo.path)) picked.add(newPath);
+        moved++;
       } catch (e, st) {
-        _log.warning('failed to move ${photo.path}', e, st);
+        _log.warning('relocate failed for ${photo.path}', e, st);
         lastError = e;
         lastStack = st;
       }
     }
 
-    if (movedPaths.isEmpty) {
+    if (moved == 0) {
       if (lastError != null) {
         state = state.copyWith(error: lastError, errorStack: lastStack);
       }
       return 0;
     }
-
-    // Drop moved photos from the gallery and from the in-memory caches.
-    final remaining =
-        state.photos.where((ph) => !movedPaths.contains(ph.path)).toList();
-    final movedKeys = {
-      for (final ph in toMove)
-        if (movedPaths.contains(ph.path)) ph.cacheKey,
-    };
-    final results = {...state.results}..removeWhere((k, _) => movedKeys.contains(k));
-    final picked = {...state.picked}..removeAll(movedPaths);
-
     state = state.copyWith(
-      photos: List.unmodifiable(remaining),
-      picked: picked,
+      photos: List.unmodifiable(photos),
       results: Map.unmodifiable(results),
-      selectedIndex: state.selectedIndex.clamp(
-        0,
-        remaining.isEmpty ? 0 : remaining.length - 1,
-      ),
-      // Report any partial failure, but keep the successful moves applied.
+      picked: picked,
       error: lastError,
       errorStack: lastStack,
     );
-    return movedPaths.length;
+    return moved;
   }
+
+  Photo _withPath(Photo photo, String newPath) => Photo(
+        path: newPath,
+        byteSize: photo.byteSize,
+        modifiedAt: photo.modifiedAt,
+        width: photo.width,
+        height: photo.height,
+        previewPath: photo.previewPath,
+      );
 }
+
+/// True if [path]'s immediate parent directory is a `BestShots` folder.
+bool isInBestShotsPath(String path) =>
+    p.basename(p.dirname(path)).toLowerCase() == 'bestshots';
