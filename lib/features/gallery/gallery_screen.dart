@@ -393,23 +393,44 @@ class _StatusBar extends ConsumerWidget {
         )));
     final t = ref.watch(stringsProvider);
 
+    // Each item carries no leading dot / trailing spaces; the "·" separator
+    // is a standalone widget with symmetric padding, so the gaps on either
+    // side of every dot are identical regardless of locale.
+    final items = <Widget>[
+      Text(s.scanning
+          ? t.tr('scanning')
+          : t.tr('photosCount', {'count': s.total.toString()})),
+      Text(t.tr('selectedCount', {'count': s.picked.toString()})),
+      if (s.analyzed > 0)
+        Text(t.tr('analyzedCount', {'count': s.analyzed.toString()})),
+      if (s.analyzing) Text(t.tr('inferring')),
+    ];
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
       color: Theme.of(context).colorScheme.surfaceContainerHighest,
       child: Row(
         children: [
-          if (s.scanning)
-            Text('${t.tr('scanning')} ')
-          else
-            Text('${t.tr('photosCount', {'count': s.total.toString()})}  '),
-          Text('${t.tr('selectedCount', {'count': s.picked.toString()})}  '),
-          if (s.analyzed > 0)
-            Text('${t.tr('analyzedCount', {'count': s.analyzed.toString()})}  '),
-          if (s.analyzing) Text(t.tr('inferring')),
+          for (var i = 0; i < items.length; i++) ...[
+            if (i > 0) const _StatusSeparator(),
+            items[i],
+          ],
         ],
       ),
     );
   }
+}
+
+/// "·" divider between status-bar items, with equal padding on both sides
+/// so every dot sits centered with identical left/right spacing.
+class _StatusSeparator extends StatelessWidget {
+  const _StatusSeparator();
+
+  @override
+  Widget build(BuildContext context) => const Padding(
+        padding: EdgeInsets.symmetric(horizontal: 8),
+        child: Text('·'),
+      );
 }
 
 /// White, underlined text button used inside the error SnackBar's content

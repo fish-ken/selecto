@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../../domain/entities/analysis_result.dart';
 import '../../../domain/entities/photo.dart';
+import '../../gallery/gallery_controller.dart';
 
 /// Horizontal thumbnail strip shown along the bottom of the viewer.
 /// Auto-scrolls to keep the current photo centred.
@@ -15,7 +16,6 @@ class Filmstrip extends StatefulWidget {
     required this.picked,
     required this.resultsByCacheKey,
     required this.onTap,
-    this.onSecondaryTap,
   });
 
   final List<Photo> photos;
@@ -23,9 +23,6 @@ class Filmstrip extends StatefulWidget {
   final Set<String> picked;
   final Map<String, AnalysisResult> resultsByCacheKey;
   final ValueChanged<int> onTap;
-
-  /// Right-click handler — toggles pick on the clicked tile.
-  final ValueChanged<int>? onSecondaryTap;
 
   @override
   State<Filmstrip> createState() => _FilmstripState();
@@ -89,11 +86,9 @@ class _FilmstripState extends State<Filmstrip> {
             photo: photo,
             isCursor: i == widget.selectedIndex,
             isPicked: widget.picked.contains(photo.path),
+            isInBestShots: isInBestShotsPath(photo.path),
             analysis: widget.resultsByCacheKey[photo.cacheKey],
             onTap: () => widget.onTap(i),
-            onSecondaryTap: widget.onSecondaryTap == null
-                ? null
-                : () => widget.onSecondaryTap!(i),
           );
         },
       ),
@@ -106,16 +101,16 @@ class _FilmstripTile extends StatelessWidget {
     required this.photo,
     required this.isCursor,
     required this.isPicked,
+    required this.isInBestShots,
     required this.onTap,
-    this.onSecondaryTap,
     this.analysis,
   });
 
   final Photo photo;
   final bool isCursor;
   final bool isPicked;
+  final bool isInBestShots;
   final VoidCallback onTap;
-  final VoidCallback? onSecondaryTap;
   final AnalysisResult? analysis;
 
   @override
@@ -127,16 +122,11 @@ class _FilmstripTile extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 4),
       child: GestureDetector(
         onTap: onTap,
-        // onSecondaryTapDown fires the moment the right button presses
-        // down (no arena wait — secondary and primary recognizers don't
-        // compete with each other since they handle different buttons).
-        onSecondaryTapDown:
-            onSecondaryTap == null ? null : (_) => onSecondaryTap!(),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 80),
           decoration: BoxDecoration(
             border: Border.all(
-              color: isCursor
+              color: isCursor || isPicked
                   ? Theme.of(context).colorScheme.primary
                   : Colors.transparent,
               width: 2,
@@ -162,15 +152,22 @@ class _FilmstripTile extends StatelessWidget {
                     ),
                   ),
                 ),
-                if (isPicked)
+                if (isInBestShots)
                   Positioned(
                     right: 2,
                     top: 2,
                     child: Container(
                       padding: const EdgeInsets.all(2),
                       decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.primary,
-                        shape: BoxShape.circle,
+                        color: Colors.teal,
+                        borderRadius: BorderRadius.circular(4),
+                        boxShadow: const [
+                          BoxShadow(
+                            color: Colors.black45,
+                            blurRadius: 3,
+                            offset: Offset(0, 1),
+                          ),
+                        ],
                       ),
                       child: const Icon(
                         Icons.check,

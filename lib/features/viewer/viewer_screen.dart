@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../l10n/l10n.dart';
 import '../gallery/gallery_controller.dart';
+import '../gallery/modifier_keys.dart';
 import 'widgets/filmstrip.dart';
 import 'widgets/viewer_shortcuts.dart';
 
@@ -88,9 +89,16 @@ class ViewerScreen extends ConsumerWidget {
                 selectedIndex: state.selectedIndex,
                 picked: state.picked,
                 resultsByCacheKey: state.results,
-                onTap: ctrl.setCursor,
-                onSecondaryTap: (i) =>
-                    ctrl.togglePickByPath(state.photos[i].path),
+                onTap: (i) {
+                  final mods = ref.read(modifierKeysProvider);
+                  if (mods.shift) {
+                    ctrl.selectRangeTo(i);
+                  } else if (mods.toggleSelect) {
+                    ctrl.toggleSelectAt(i);
+                  } else {
+                    ctrl.selectSingle(i);
+                  }
+                },
               ),
             ),
           ],
