@@ -62,14 +62,11 @@ macos/.symlinks/
 **/*.xcuserstate
 
 # =============================================================
-# AI assets — large binaries, fetched out-of-band
+# AI assets — large binaries, tracked via Git LFS
 # =============================================================
-# Drop *.onnx / *.ort weights into assets/models/ on each machine
-# (they can be hundreds of MB and shouldn't bloat git history).
-# assets/models/*.onnx
-# assets/models/*.ort
-# assets/models/*.bin
-# assets/models/*.pt
+# Model weights (*.onnx / *.ort / *.bin / *.pt) are committed through
+# Git LFS — see .gitattributes. They can be hundreds of MB, so LFS keeps
+# them out of the packed git history while still versioning them.
 
 # Native ONNX Runtime libs — fetched by the `onnxruntime` pub package
 # on first build; only commit custom GPU/CoreML builds intentionally.

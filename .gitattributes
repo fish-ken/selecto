@@ -1,0 +1,6 @@
+# AI model weights — stored via Git LFS (see .gitignore "AI assets").
+# These binaries can be hundreds of MB; LFS keeps the packed history small.
+assets/models/*.onnx filter=lfs diff=lfs merge=lfs -text
+assets/models/*.ort  filter=lfs diff=lfs merge=lfs -text
+assets/models/*.bin  filter=lfs diff=lfs merge=lfs -text
+assets/models/*.pt   filter=lfs diff=lfs merge=lfs -text
