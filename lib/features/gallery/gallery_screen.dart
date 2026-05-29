@@ -98,6 +98,7 @@ class _GalleryAppBar extends ConsumerWidget implements PreferredSizeWidget {
           hasPhotos: s.photos.isNotEmpty,
           analyzing: s.analyzing,
           hasResults: s.results.isNotEmpty,
+          pickedCount: s.picked.length,
         )));
     final hasModel = ref.watch(selectedModelProvider) != null;
     final ctrl = ref.read(galleryControllerProvider.notifier);
@@ -138,9 +139,38 @@ class _GalleryAppBar extends ConsumerWidget implements PreferredSizeWidget {
           onPressed: !s.hasResults ? null : ctrl.selectBest,
           icon: const Icon(Icons.star),
         ),
+        Builder(
+          builder: (context) => IconButton(
+            tooltip: s.pickedCount == 0
+                ? 'Move selected to BestShots (none selected)'
+                : 'Move ${s.pickedCount} selected to BestShots folder',
+            onPressed: s.pickedCount == 0
+                ? null
+                : () => _moveSelectedToBestShots(context, ctrl),
+            icon: const Icon(Icons.drive_file_move_outline),
+          ),
+        ),
       ],
     );
   }
+}
+
+/// Moves the picked photos into the `BestShots` subfolder and reports the
+/// outcome via SnackBar. Errors propagate through the controller's state
+/// and are shown by the listener in [_GalleryScreenState.build].
+Future<void> _moveSelectedToBestShots(
+  BuildContext context,
+  GalleryController ctrl,
+) async {
+  final messenger = ScaffoldMessenger.maybeOf(context);
+  final moved = await ctrl.moveSelectedToBestShots();
+  if (moved <= 0) return; // Nothing moved (or all failed → error SnackBar).
+  messenger?.showSnackBar(
+    SnackBar(
+      content: Text('Moved $moved photo${moved == 1 ? '' : 's'} to BestShots'),
+      duration: const Duration(seconds: 3),
+    ),
+  );
 }
 
 /// Body — empty state vs. grid. Watches only what the body decision needs.

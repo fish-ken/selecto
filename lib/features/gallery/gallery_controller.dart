@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:logging/logging.dart';
+import 'package:path/path.dart' as p;
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import '../../app/providers.dart';
@@ -179,5 +180,68 @@ class GalleryController extends _$GalleryController {
     state = state.copyWith(
       picked: {...state.picked, ...best.map((p) => p.path)},
     );
+  }
+
+  /// Move every picked photo into a `BestShots` subfolder of the currently
+  /// open directory (created if missing), then drop the moved photos from
+  /// the in-memory gallery so they don't reappear under the new location.
+  ///
+  /// Returns the number of files actually moved. Per-file failures are
+  /// logged and surfaced via [GalleryState.error]; the successfully moved
+  /// files are still removed from state.
+  Future<int> moveSelectedToBestShots() async {
+    final root = state.rootPath;
+    if (root == null || state.picked.isEmpty) return 0;
+
+    final repo = ref.read(photoRepositoryProvider);
+    final destDir = p.join(root, 'BestShots');
+
+    final toMove =
+        state.photos.where((ph) => state.picked.contains(ph.path)).toList();
+
+    final movedPaths = <String>{};
+    Object? lastError;
+    StackTrace? lastStack;
+    for (final photo in toMove) {
+      try {
+        await repo.movePhoto(photo, destDir);
+        movedPaths.add(photo.path);
+      } catch (e, st) {
+        _log.warning('failed to move ${photo.path}', e, st);
+        lastError = e;
+        lastStack = st;
+      }
+    }
+
+    if (movedPaths.isEmpty) {
+      if (lastError != null) {
+        state = state.copyWith(error: lastError, errorStack: lastStack);
+      }
+      return 0;
+    }
+
+    // Drop moved photos from the gallery and from the in-memory caches.
+    final remaining =
+        state.photos.where((ph) => !movedPaths.contains(ph.path)).toList();
+    final movedKeys = {
+      for (final ph in toMove)
+        if (movedPaths.contains(ph.path)) ph.cacheKey,
+    };
+    final results = {...state.results}..removeWhere((k, _) => movedKeys.contains(k));
+    final picked = {...state.picked}..removeAll(movedPaths);
+
+    state = state.copyWith(
+      photos: List.unmodifiable(remaining),
+      picked: picked,
+      results: Map.unmodifiable(results),
+      selectedIndex: state.selectedIndex.clamp(
+        0,
+        remaining.isEmpty ? 0 : remaining.length - 1,
+      ),
+      // Report any partial failure, but keep the successful moves applied.
+      error: lastError,
+      errorStack: lastStack,
+    );
+    return movedPaths.length;
   }
 }

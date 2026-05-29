@@ -12,4 +12,11 @@ abstract interface class PhotoRepository {
 
   /// Read raw bytes (used by AI preprocessing inside an isolate).
   Future<List<int>> readBytes(String path);
+
+  /// Move [photo]'s file into [destDir], creating the directory if it
+  /// doesn't exist. Returns the new absolute path. Name collisions are
+  /// resolved by appending " (n)" before the extension. For RAW files the
+  /// sidecar preview cache is left untouched (it's keyed off the original
+  /// path and regenerated on demand).
+  Future<String> movePhoto(Photo photo, String destDir);
 }

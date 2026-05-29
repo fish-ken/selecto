@@ -1,6 +1,8 @@
 import 'dart:io';
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -64,31 +66,13 @@ class ViewerScreen extends ConsumerWidget {
               onClose: close,
             ),
             Expanded(
-              child: GestureDetector(
-                onDoubleTap: close, // double-click anywhere to leave
+              child: _ZoomableImage(
+                // Key by path so the zoom resets when navigating photos.
+                key: ValueKey(photo.decodablePath),
+                imagePath: photo.decodablePath,
                 // Right-click on the main image toggles pick on the
                 // currently displayed photo (no need to leave the viewer).
-                onSecondaryTapDown: (_) =>
-                    ctrl.togglePickByPath(photo.path),
-                child: Container(
-                  color: Colors.black,
-                  alignment: Alignment.center,
-                  child: Image.file(
-                    File(photo.decodablePath),
-                    // Preserve original aspect ratio; let Flutter scale
-                    // to fit the available pane.
-                    fit: BoxFit.contain,
-                    filterQuality: FilterQuality.medium,
-                    gaplessPlayback: true,
-                    errorBuilder: (_, __, ___) => const Center(
-                      child: Icon(
-                        Icons.broken_image,
-                        size: 64,
-                        color: Colors.white54,
-                      ),
-                    ),
-                  ),
-                ),
+                onSecondaryTap: () => ctrl.togglePickByPath(photo.path),
               ),
             ),
             SizedBox(
@@ -104,6 +88,126 @@ class ViewerScreen extends ConsumerWidget {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Pan/zoom surface for the loupe image.
+///
+/// - **Double-click** toggles between fit-to-window (1×) and 200%, centered
+///   on the cursor. A second double-click anywhere returns to 1×.
+/// - **Ctrl + mouse wheel** zooms in/out around the pointer.
+/// - When zoomed, drag to pan (handled by [InteractiveViewer]).
+///
+/// Closing the viewer stays on Esc/Enter (see [ViewerShortcuts]) — the
+/// old double-click-to-close gesture is now the zoom toggle.
+class _ZoomableImage extends StatefulWidget {
+  const _ZoomableImage({
+    super.key,
+    required this.imagePath,
+    required this.onSecondaryTap,
+  });
+
+  final String imagePath;
+  final VoidCallback onSecondaryTap;
+
+  @override
+  State<_ZoomableImage> createState() => _ZoomableImageState();
+}
+
+class _ZoomableImageState extends State<_ZoomableImage> {
+  final _controller = TransformationController();
+  Offset? _lastTapPosition;
+
+  static const double _minScale = 1.0;
+  static const double _maxScale = 8.0;
+  static const double _doubleTapScale = 2.0;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  double get _scale => _controller.value.getMaxScaleOnAxis();
+
+  void _handleDoubleTap() {
+    if (_scale > _minScale + 0.01) {
+      // Already zoomed — snap back to fit.
+      _controller.value = Matrix4.identity();
+      return;
+    }
+    // Zoom in to 200%, centered on the point the user clicked.
+    final focal = _lastTapPosition;
+    const z = _doubleTapScale;
+    if (focal == null) {
+      _controller.value = Matrix4.diagonal3Values(z, z, 1);
+    } else {
+      // T(-focal·(z-1)) · S(z): scale up, then shift so the tapped point
+      // stays put under the cursor.
+      _controller.value =
+          Matrix4.translationValues(-focal.dx * (z - 1), -focal.dy * (z - 1), 0)
+            ..multiply(Matrix4.diagonal3Values(z, z, 1));
+    }
+  }
+
+  void _handlePointerSignal(PointerSignalEvent event) {
+    if (event is! PointerScrollEvent) return;
+    // Only zoom when Ctrl is held; otherwise let the scroll fall through.
+    if (!HardwareKeyboard.instance.isControlPressed) return;
+
+    final factor = event.scrollDelta.dy > 0 ? 0.9 : 1.1;
+    final target = (_scale * factor).clamp(_minScale, _maxScale);
+    final applied = target / _scale;
+    if ((applied - 1.0).abs() < 1e-6) return;
+
+    final focal = event.localPosition;
+    // Scale around the pointer: T(focal) · S(applied) · T(-focal) · current.
+    final zoom = Matrix4.translationValues(focal.dx, focal.dy, 0)
+      ..multiply(Matrix4.diagonal3Values(applied, applied, 1))
+      ..multiply(Matrix4.translationValues(-focal.dx, -focal.dy, 0));
+    _controller.value = zoom * _controller.value;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Listener(
+      onPointerSignal: _handlePointerSignal,
+      child: GestureDetector(
+        onDoubleTapDown: (d) => _lastTapPosition = d.localPosition,
+        onDoubleTap: _handleDoubleTap,
+        onSecondaryTapDown: (_) => widget.onSecondaryTap(),
+        child: InteractiveViewer(
+          transformationController: _controller,
+          minScale: _minScale,
+          maxScale: _maxScale,
+          // Keep the image edges within the viewport while panning.
+          boundaryMargin: EdgeInsets.zero,
+          // Scale is driven manually (double-tap + Ctrl+wheel) so the
+          // built-in plain-scroll zoom doesn't fire on a bare mouse wheel.
+          // Panning (drag when zoomed) stays enabled.
+          scaleEnabled: false,
+          // The child fills the whole pane so pointer coordinates map
+          // 1:1 onto the transform space used by double-tap / Ctrl+wheel.
+          child: SizedBox.expand(
+            child: Image.file(
+              File(widget.imagePath),
+              // Preserve original aspect ratio; let Flutter scale
+              // to fit the available pane.
+              fit: BoxFit.contain,
+              filterQuality: FilterQuality.medium,
+              gaplessPlayback: true,
+              errorBuilder: (_, __, ___) => const Center(
+                child: Icon(
+                  Icons.broken_image,
+                  size: 64,
+                  color: Colors.white54,
+                ),
+              ),
+            ),
+          ),
         ),
       ),
     );
