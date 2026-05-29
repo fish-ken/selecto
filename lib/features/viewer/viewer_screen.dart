@@ -127,14 +127,13 @@ class _ZoomableImageState extends State<_ZoomableImage>
     with SingleTickerProviderStateMixin {
   final _controller = TransformationController();
   // Drives the eased transitions for both double-tap and Ctrl+wheel zoom
-  // so scale changes glide instead of snapping.
-  late final AnimationController _animController = AnimationController(
-    vsync: this,
-    duration: _doubleTapDuration,
-  )..addListener(() {
-      final anim = _animation;
-      if (anim != null) _controller.value = anim.value;
-    });
+  // so scale changes glide instead of snapping. Created in initState (not a
+  // `late final` initializer): the lazy initializer would otherwise run on
+  // first access, which — if the user never zoomed this photo — happens
+  // inside dispose(). Building an AnimationController there calls
+  // createTicker → TickerMode.of(context), an ancestor lookup that throws
+  // once the element is deactivated.
+  late final AnimationController _animController;
   Animation<Matrix4>? _animation;
   Offset? _lastTapPosition;
 
@@ -143,6 +142,18 @@ class _ZoomableImageState extends State<_ZoomableImage>
   static const double _doubleTapScale = 2.0;
   static const _doubleTapDuration = Duration(milliseconds: 220);
   static const _wheelDuration = Duration(milliseconds: 120);
+
+  @override
+  void initState() {
+    super.initState();
+    _animController = AnimationController(
+      vsync: this,
+      duration: _doubleTapDuration,
+    )..addListener(() {
+        final anim = _animation;
+        if (anim != null) _controller.value = anim.value;
+      });
+  }
 
   @override
   void dispose() {
