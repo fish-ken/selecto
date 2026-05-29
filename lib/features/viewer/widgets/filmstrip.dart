@@ -148,9 +148,17 @@ class _FilmstripTile extends StatelessWidget {
           duration: const Duration(milliseconds: 80),
           decoration: BoxDecoration(
             border: Border.all(
-              color: isCursor || isPicked
+              // Selected → solid accent border; cursor-only (the currently
+              // viewed photo, or one just Ctrl+click-deselected) → a faint
+              // accent border so it reads as focused-but-not-selected.
+              color: isPicked
                   ? Theme.of(context).colorScheme.primary
-                  : Colors.transparent,
+                  : isCursor
+                      ? Theme.of(context)
+                          .colorScheme
+                          .primary
+                          .withValues(alpha: 0.35)
+                      : Colors.transparent,
               width: 2,
             ),
             borderRadius: BorderRadius.circular(4),

@@ -125,7 +125,15 @@ class GalleryController extends _$GalleryController {
     if (state.photos.isEmpty) return;
     final next = (state.selectedIndex + delta).clamp(0, state.photos.length - 1);
     if (next == state.selectedIndex) return;
-    state = state.copyWith(selectedIndex: next);
+    // Arrow navigation carries the single selection with the cursor: the
+    // photo moved onto becomes the sole selected item and the previous one
+    // is deselected. Multi-select is built with Ctrl/Shift+click; a plain
+    // arrow collapses back to a single selection.
+    state = state.copyWith(
+      selectedIndex: next,
+      selectionAnchor: next,
+      picked: {state.photos[next].path},
+    );
   }
 
   void setCursor(int index) {

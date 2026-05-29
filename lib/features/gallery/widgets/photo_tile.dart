@@ -107,9 +107,18 @@ class PhotoTile extends StatelessWidget {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(6),
             border: Border.all(
-              color: isCursor || isPicked
+              // Selected → solid accent border. Cursor-only (e.g. an item
+              // just Ctrl+click-deselected, or the focused-but-unselected
+              // photo) → a faint accent border so it reads as "focused, not
+              // selected". Neither → no border.
+              color: isPicked
                   ? Theme.of(context).colorScheme.primary
-                  : Colors.transparent,
+                  : isCursor
+                      ? Theme.of(context)
+                          .colorScheme
+                          .primary
+                          .withValues(alpha: 0.35)
+                      : Colors.transparent,
               width: 2,
             ),
           ),
