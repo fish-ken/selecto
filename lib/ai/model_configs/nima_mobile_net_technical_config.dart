@@ -3,7 +3,7 @@ import '../preprocessing.dart';
 import 'model_config.dart';
 
 /// NIMA MobileNet technical-quality head — same I/O shape as the aesthetic
-/// variant, different weights.
+/// variant (NHWC `[1, 224, 224, 3]` input), different weights.
 class NimaMobileNetTechnicalConfig extends ModelConfig {
   const NimaMobileNetTechnicalConfig();
 
@@ -14,7 +14,7 @@ class NimaMobileNetTechnicalConfig extends ModelConfig {
   String get path => 'assets/models/nima_mobilenet_technical.onnx';
 
   @override
-  PreprocessConfig get preprocess => PreprocessConfig.nimaMobileNet;
+  PreprocessConfig get preprocess => PreprocessConfig.nimaMobileNetNhwc;
 
   @override
   OutputKind get output => OutputKind.nimaDistribution;

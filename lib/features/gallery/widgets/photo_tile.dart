@@ -107,7 +107,7 @@ class PhotoTile extends StatelessWidget {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(6),
             border: Border.all(
-              color: isCursor
+              color: isCursor || isPicked
                   ? Theme.of(context).colorScheme.primary
                   : Colors.transparent,
               width: 2,
@@ -130,29 +130,7 @@ class PhotoTile extends StatelessWidget {
                     child: Center(child: Icon(Icons.broken_image, size: 24)),
                   ),
                 ),
-                if (isPicked)
-                  Positioned.fill(
-                    child: ColoredBox(
-                      color: Theme.of(context)
-                          .colorScheme
-                          .primary
-                          .withValues(alpha: 0.30),
-                    ),
-                  ),
                 if (isInBestShots) const _BestShotsBadge(),
-                if (isPicked)
-                  Positioned(
-                    left: 4,
-                    top: 4,
-                    child: Container(
-                      padding: const EdgeInsets.all(4),
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.primary,
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(Icons.check, size: 14, color: Colors.white),
-                    ),
-                  ),
                 if (analysis != null)
                   Positioned(
                     left: 4,
@@ -236,7 +214,7 @@ class _InstantClickState extends State<_InstantClick> {
 }
 
 /// Top-right badge indicating the photo lives in a `BestShots` folder
-/// (kept/best). Teal circle distinguishes it from the selection accent.
+/// (kept/best). Teal rounded-square badge distinguishes it from the selection accent.
 class _BestShotsBadge extends StatelessWidget {
   const _BestShotsBadge();
 
@@ -246,10 +224,17 @@ class _BestShotsBadge extends StatelessWidget {
       right: 4,
       top: 4,
       child: Container(
-        padding: const EdgeInsets.all(4),
-        decoration: const BoxDecoration(
+        padding: const EdgeInsets.all(3),
+        decoration: BoxDecoration(
           color: Colors.teal,
-          shape: BoxShape.circle,
+          borderRadius: BorderRadius.circular(5),
+          boxShadow: const [
+            BoxShadow(
+              color: Colors.black45,
+              blurRadius: 3,
+              offset: Offset(0, 1),
+            ),
+          ],
         ),
         child: const Icon(Icons.check, size: 14, color: Colors.white),
       ),
