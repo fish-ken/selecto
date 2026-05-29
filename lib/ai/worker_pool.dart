@@ -8,6 +8,7 @@ import '../domain/entities/analysis_result.dart';
 import '../domain/entities/photo.dart';
 import 'isolate_messages.dart';
 import 'isolate_worker.dart';
+import 'model_configs/model_configs.dart';
 
 /// Manages N worker isolates that all hold the same ONNX model.
 /// Distributes single inference requests round-robin and resolves the
@@ -32,11 +33,11 @@ import 'isolate_worker.dart';
 ///     until a matching [InferenceSuccess] / [InferenceError] arrives.
 class WorkerPool {
   WorkerPool({
-    required this.modelPath,
+    required this.model,
     int? workerCount,
   }) : workerCount = workerCount ?? _defaultWorkerCount();
 
-  final String modelPath;
+  final ModelConfig model;
   final int workerCount;
 
   static final _log = Logger('WorkerPool');
@@ -86,7 +87,7 @@ class WorkerPool {
     for (var i = 0; i < workerCount; i++) {
       await Isolate.spawn<WorkerInit>(
         aiWorkerEntry,
-        WorkerInit(modelAssetPath: modelPath, replyPort: reply.sendPort),
+        WorkerInit(model: model, replyPort: reply.sendPort),
         debugName: 'ai-worker-$i',
       );
     }

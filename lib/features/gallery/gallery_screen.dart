@@ -4,7 +4,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../app/providers.dart';
 import 'gallery_controller.dart';
 import 'gallery_state.dart';
 import 'widgets/gallery_shortcuts.dart';
@@ -100,7 +99,6 @@ class _GalleryAppBar extends ConsumerWidget implements PreferredSizeWidget {
           hasResults: s.results.isNotEmpty,
           pickedCount: s.picked.length,
         )));
-    final hasModel = ref.watch(selectedModelProvider) != null;
     final ctrl = ref.read(galleryControllerProvider.notifier);
 
     return AppBar(
@@ -122,10 +120,8 @@ class _GalleryAppBar extends ConsumerWidget implements PreferredSizeWidget {
           ),
         ),
         IconButton(
-          tooltip: hasModel ? 'Analyze' : 'No model selected',
-          onPressed: !s.hasPhotos || s.analyzing || !hasModel
-              ? null
-              : ctrl.analyzeAll,
+          tooltip: 'Analyze',
+          onPressed: !s.hasPhotos || s.analyzing ? null : ctrl.analyzeAll,
           icon: s.analyzing
               ? const SizedBox(
                   width: 18,

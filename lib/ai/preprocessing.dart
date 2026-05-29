@@ -51,14 +51,10 @@ class PreprocessConfig {
 
   // ───── Per-model presets ────────────────────────────────────────────
   //
-  // To add support for a new ONNX model:
-  //   1. Add a `static const` preset below for its layout + normalization
-  //      (re-use [mean]/[std] from another preset when applicable).
-  //   2. Add a branch to [forModelFileName] matching a unique substring
-  //      of the model's file name.
-  //   3. Drop the `.onnx` into `assets/models/`. The picker UI auto-
-  //      discovers it; the worker pool calls [forModelFileName] at
-  //      spawn time to pick the right config.
+  // Each preset is referenced by a `ModelConfig` subclass in
+  // `model_config.dart`, which is the single source of truth for which
+  // model uses which preprocessing. To add a model: add a preset here (if
+  // its layout/normalization is new), then point a new `ModelConfig` at it.
   //
   // If the model's output format is also new (not a 10-bin softmax or
   // a [0, 1] sigmoid scalar), see `output_decoder.dart`.
@@ -87,27 +83,14 @@ class PreprocessConfig {
     normalization: Normalization.imagenet,
   );
 
-  /// Catch-all default for unknown models. NCHW + ImageNet covers most
-  /// PyTorch-exported vision networks.
+  /// Catch-all default. NCHW + ImageNet covers most PyTorch-exported
+  /// vision networks; reference it from a `ModelConfig` when a model
+  /// doesn't need its own preset.
   static const genericImageNet = PreprocessConfig(
     inputSize: 224,
     layout: TensorLayout.nchw,
     normalization: Normalization.imagenet,
   );
-
-  /// Picks the right preset based on the model file name. We can't read
-  /// preprocessing requirements from ONNX metadata reliably, so this
-  /// map is maintained by hand — see the "Per-model presets" comment
-  /// block above for the extension recipe.
-  ///
-  /// Match patterns are case-insensitive substrings so different
-  /// variants of the same family land on the same config.
-  static PreprocessConfig forModelFileName(String fileName) {
-    final lower = fileName.toLowerCase();
-    if (lower.contains('nima')) return nimaMobileNet;
-    if (lower.contains('maniqa')) return maniqaImageNet;
-    return genericImageNet;
-  }
 }
 
 /// Stateless tensor builder. Decodes the bytes of a JPEG/PNG/etc,

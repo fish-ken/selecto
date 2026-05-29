@@ -19,9 +19,8 @@ class GalleryController extends _$GalleryController {
   @override
   GalleryState build() {
     // When the user switches models, wipe in-memory results so the UI
-    // doesn't show scores from the previous model. The DB cache stays —
-    // it's namespaced by modelId so old scores remain available if the
-    // user switches back.
+    // doesn't show scores from the previous model and cancel any analysis
+    // still streaming from the old model's isolate pool.
     ref.listen(selectedModelProvider, (prev, next) {
       if (prev == next) return;
       _analyzeSub?.cancel();
@@ -77,12 +76,6 @@ class GalleryController extends _$GalleryController {
   Future<void> analyzeAll() async {
     if (state.photos.isEmpty || state.analyzing) return;
     final analyze = ref.read(analyzePhotosProvider);
-    if (analyze == null) {
-      state = state.copyWith(
-        error: StateError('No model selected'),
-      );
-      return;
-    }
     await _analyzeSub?.cancel();
     state = state.copyWith(analyzing: true, clearError: true);
 

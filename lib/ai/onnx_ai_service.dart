@@ -5,6 +5,7 @@ import 'package:logging/logging.dart';
 import '../domain/entities/analysis_result.dart';
 import '../domain/entities/photo.dart';
 import 'ai_service.dart';
+import 'model_configs/model_configs.dart';
 import 'worker_pool.dart';
 
 /// ONNX Runtime-backed [AiService].
@@ -17,9 +18,9 @@ import 'worker_pool.dart';
 ///     *what* went wrong instead of a generic "0 results" message.
 class OnnxAiService implements AiService {
   OnnxAiService({
-    required String modelPath,
+    required ModelConfig model,
     int? workerCount,
-  }) : _pool = WorkerPool(modelPath: modelPath, workerCount: workerCount);
+  }) : _pool = WorkerPool(model: model, workerCount: workerCount);
 
   final WorkerPool _pool;
   static final _log = Logger('OnnxAiService');

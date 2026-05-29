@@ -2,7 +2,6 @@ import 'dart:io';
 import 'dart:isolate';
 
 import 'package:onnxruntime_v2/onnxruntime_v2.dart';
-import 'package:path/path.dart' as p;
 
 import 'isolate_messages.dart';
 import 'output_decoder.dart';
@@ -11,12 +10,13 @@ import 'preprocessing.dart';
 /// Entry point for each AI worker isolate. Spawned by `WorkerPool`.
 ///
 /// Lifecycle:
-///   1. Receive [WorkerInit] (model path + reply port).
-///   2. Load the ONNX model. Pick the right [PreprocessConfig] by file
-///      name. Auto-discover the model's input tensor name.
+///   1. Receive [WorkerInit] (the active [ModelConfig] + reply port).
+///   2. Load the ONNX model. Build the preprocessor from the config's
+///      [PreprocessConfig]. Auto-discover the model's input tensor name.
 ///   3. Send [WorkerReady] so the pool can start queueing requests.
 ///   4. Loop: pull [InferenceRequest]s from the command port,
-///      run inference, reply with [InferenceSuccess] or [InferenceError].
+///      run inference, decode per the config's [OutputKind], reply with
+///      [InferenceSuccess] or [InferenceError].
 ///
 /// CRITICAL invariant: [OrtSession] is NOT thread-safe. The session
 /// belongs to this isolate for its entire life — never share it, never
@@ -24,7 +24,8 @@ import 'preprocessing.dart';
 Future<void> aiWorkerEntry(WorkerInit init) async {
   OrtEnv.instance.init();
 
-  final modelBytes = await File(init.modelAssetPath).readAsBytes();
+  final model = init.model;
+  final modelBytes = await File(model.path).readAsBytes();
   final sessionOptions = OrtSessionOptions()..appendDefaultProviders();
   final session = OrtSession.fromBuffer(modelBytes, sessionOptions);
 
@@ -36,14 +37,10 @@ Future<void> aiWorkerEntry(WorkerInit init) async {
       ? session.inputNames.first
       : 'input';
 
-  // Per-model preprocessing is selected by file name — see
-  // [PreprocessConfig.forModelFileName] for the registry and its
-  // extension recipe.
-  final preprocessor = ImagePreprocessor(
-    config: PreprocessConfig.forModelFileName(
-      p.basename(init.modelAssetPath),
-    ),
-  );
+  // Preprocessing + output decoding come straight from the selected
+  // model's config — no name-based guessing.
+  final preprocessor = ImagePreprocessor(config: model.preprocess);
+  final outputKind = model.output;
   final runOptions = OrtRunOptions();
 
   final commands = ReceivePort();
@@ -57,6 +54,7 @@ Future<void> aiWorkerEntry(WorkerInit init) async {
       preprocessor: preprocessor,
       runOptions: runOptions,
       inputName: inputName,
+      outputKind: outputKind,
       replyPort: init.replyPort,
     );
   }
@@ -71,6 +69,7 @@ Future<void> _runOne({
   required ImagePreprocessor preprocessor,
   required OrtRunOptions runOptions,
   required String inputName,
+  required OutputKind outputKind,
   required SendPort replyPort,
 }) async {
   try {
@@ -88,7 +87,7 @@ Future<void> _runOne({
     final inputs = <String, OrtValue>{inputName: inputTensor};
     final outputs = session.run(runOptions, inputs);
 
-    final score = decodeScore(outputs);
+    final score = decodeScore(outputs, outputKind);
 
     inputTensor.release();
     for (final o in outputs) {

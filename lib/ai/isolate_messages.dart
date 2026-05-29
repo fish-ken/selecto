@@ -1,5 +1,7 @@
 import 'dart:isolate';
 
+import 'model_configs/model_configs.dart';
+
 /// Wire format for messages exchanged between the main isolate (host of
 /// `WorkerPool` / `OnnxAiService`) and the worker isolates (running
 /// `aiWorkerEntry`).
@@ -14,14 +16,19 @@ import 'dart:isolate';
 ///                   then [InferenceSuccess] | [InferenceError] per job
 
 /// One-time setup payload, sent from the main isolate when a worker
-/// starts. [replyPort] is the channel the worker uses for all of its
+/// starts. Carries the full [ModelConfig] so the worker knows the weights
+/// path, preprocessing, and output decoding without any name-based
+/// guessing. [replyPort] is the channel the worker uses for all of its
 /// outbound traffic.
+///
+/// [ModelConfig] is plain data (path + const presets + enums) and so is
+/// safely sendable across the isolate boundary.
 class WorkerInit {
   const WorkerInit({
-    required this.modelAssetPath,
+    required this.model,
     required this.replyPort,
   });
-  final String modelAssetPath;
+  final ModelConfig model;
   final SendPort replyPort;
 }
 

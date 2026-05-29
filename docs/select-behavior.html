@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Selecto — 사진 선택(Select) 동작 보고서</title>
+<style>
+  :root {
+    --bg: #0f1115;
+    --panel: #171a21;
+    --panel-2: #1d212b;
+    --border: #2a2f3a;
+    --text: #e6e8ee;
+    --muted: #9aa3b2;
+    --accent: #4fd1c5;
+    --accent-2: #f6c453;
+    --pick: #4fd1c5;
+    --danger: #f87171;
+    --code-bg: #11141a;
+    --mono: "JetBrains Mono", "Cascadia Code", Consolas, "Courier New", monospace;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, "Segoe UI", "Malgun Gothic", Roboto, sans-serif;
+    line-height: 1.7;
+    font-size: 16px;
+  }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 48px 24px 96px; }
+  header.hero {
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 28px;
+    margin-bottom: 36px;
+  }
+  header.hero .tag {
+    display: inline-block;
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: .08em;
+    color: var(--accent);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    padding: 4px 12px;
+    margin-bottom: 16px;
+  }
+  h1 { font-size: 30px; margin: 0 0 8px; letter-spacing: -.01em; }
+  h2 {
+    font-size: 22px;
+    margin: 48px 0 14px;
+    padding-top: 8px;
+    border-top: 1px solid var(--border);
+  }
+  h2 .num {
+    font-family: var(--mono);
+    color: var(--accent);
+    margin-right: 10px;
+    font-size: 18px;
+  }
+  h3 { font-size: 17px; margin: 28px 0 8px; color: #cdd3df; }
+  p { color: var(--text); }
+  .lead { color: var(--muted); font-size: 17px; }
+  code {
+    font-family: var(--mono);
+    font-size: 13.5px;
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    padding: 1.5px 6px;
+    color: #e8edf6;
+  }
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 18px;
+    overflow-x: auto;
+    font-family: var(--mono);
+    font-size: 13px;
+    line-height: 1.6;
+    color: #d7deea;
+  }
+  pre code { background: none; border: none; padding: 0; }
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px 22px;
+    margin: 18px 0;
+  }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 720px) { .grid2 { grid-template-columns: 1fr; } }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 16px 0;
+    font-size: 14.5px;
+  }
+  th, td {
+    text-align: left;
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+  th { color: var(--accent); font-weight: 600; font-size: 13px; letter-spacing: .03em; }
+  td.kbd { white-space: nowrap; }
+  kbd {
+    font-family: var(--mono);
+    font-size: 12px;
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    border-bottom-width: 2px;
+    border-radius: 5px;
+    padding: 2px 7px;
+    color: #eef2f8;
+  }
+  .pill {
+    display: inline-block;
+    font-size: 11.5px;
+    font-family: var(--mono);
+    padding: 2px 9px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+  }
+  .pill.state { color: var(--accent); }
+  .pill.action { color: var(--accent-2); }
+  .note {
+    border-left: 3px solid var(--accent);
+    background: var(--panel-2);
+    padding: 12px 16px;
+    border-radius: 0 8px 8px 0;
+    margin: 16px 0;
+    color: #cdd3df;
+    font-size: 14.5px;
+  }
+  .warn { border-left-color: var(--accent-2); }
+  .flow {
+    font-family: var(--mono);
+    font-size: 12.5px;
+    line-height: 1.5;
+    color: #cfd6e2;
+    white-space: pre;
+    overflow-x: auto;
+  }
+  .muted { color: var(--muted); }
+  .filepath {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--accent);
+  }
+  ul, ol { padding-left: 22px; }
+  li { margin: 5px 0; }
+  .toc a { color: var(--accent); text-decoration: none; }
+  .toc a:hover { text-decoration: underline; }
+  .toc ol { columns: 2; }
+  @media (max-width: 720px) { .toc ol { columns: 1; } }
+  .example-row { display: flex; gap: 4px; flex-wrap: wrap; margin: 8px 0; }
+  .cell {
+    font-family: var(--mono);
+    font-size: 12px;
+    min-width: 42px;
+    text-align: center;
+    padding: 6px 4px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--panel-2);
+  }
+  .cell.kept { border-color: var(--pick); color: var(--pick); background: rgba(79,209,197,.10); }
+  .cell.cut { color: var(--muted); }
+  .cell.thr { border-color: var(--accent-2); color: var(--accent-2); }
+  footer { margin-top: 64px; padding-top: 20px; border-top: 1px solid var(--border); color: var(--muted); font-size: 13px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="hero">
+  <span class="tag">SELECTO · 기술 보고서</span>
+  <h1>사진 선택(Select) 동작 상세</h1>
+  <p class="lead">Selecto에서 사진을 "고르는" 모든 경로 — 수동 선택, AI 기반 자동 선별(Select Best Shots), 그리고 선택 결과의 활용까지의 동작과 내부 로직을 정리합니다.</p>
+</header>
+
+<div class="panel toc">
+  <strong>목차</strong>
+  <ol>
+    <li><a href="#concept">두 가지 상태: 커서 vs. 선택</a></li>
+    <li><a href="#state">선택 상태 모델</a></li>
+    <li><a href="#manual">수동 선택 동작</a></li>
+    <li><a href="#auto">자동 선별 — Select Best Shots</a></li>
+    <li><a href="#algorithm">선별 알고리즘과 계산 예시</a></li>
+    <li><a href="#move">선택본 이동 — Move to BestShots</a></li>
+    <li><a href="#shortcuts">단축키 · 마우스 동작</a></li>
+    <li><a href="#flow">데이터 흐름과 아키텍처</a></li>
+    <li><a href="#edge">경계 조건과 주의점</a></li>
+  </ol>
+</div>
+
+<!-- 1 -->
+<h2 id="concept"><span class="num">01</span>두 가지 상태: 커서 vs. 선택</h2>
+<p>Selecto는 사진에 대해 서로 독립적인 두 가지 상태를 구분합니다. 이 구분을 이해하는 것이 선택 동작 전체의 출발점입니다.</p>
+<div class="grid2">
+  <div class="panel">
+    <span class="pill state">selectedIndex</span>
+    <h3 style="margin-top:10px">커서(focus)</h3>
+    <p class="muted" style="font-size:14.5px;margin:0">키보드 포커스가 놓인 <strong>단 하나</strong>의 사진. 방향키로 이동하며, 그리드에서 테두리로 강조됩니다. 디테일 뷰가 보여주는 사진도 이 커서가 가리키는 사진입니다. "지금 보고 있는 위치"일 뿐, 선택과는 무관합니다.</p>
+  </div>
+  <div class="panel">
+    <span class="pill state">picked</span>
+    <h3 style="margin-top:10px">선택(pick)</h3>
+    <p class="muted" style="font-size:14.5px;margin:0">사용자가 의도적으로 "고른" 사진들의 <strong>집합</strong>. 여러 장이 될 수 있고, 체크 표시로 강조됩니다. 이후 BestShots 폴더로 이동되는 대상이 바로 이 집합입니다.</p>
+  </div>
+</div>
+<div class="note">핵심: 커서를 옮긴다고 선택이 바뀌지 않으며, 사진을 선택해도 커서는 그 자리에 머뭅니다. 덕분에 "커서는 그대로 둔 채 마우스 우클릭으로 다른 사진만 콕 집어 선택"하는 흐름이 가능합니다.</div>
+
+<!-- 2 -->
+<h2 id="state"><span class="num">02</span>선택 상태 모델</h2>
+<p>상태는 불변(immutable) 스냅샷인 <code>GalleryState</code>에 담깁니다. <span class="filepath">lib/features/gallery/gallery_state.dart</span></p>
+<pre><code>class GalleryState {
+  final List&lt;Photo&gt; photos;           // 현재 디렉토리에서 스캔된 사진들
+  final int selectedIndex;            // 커서 위치 (한 개)
+  final Set&lt;String&gt; picked;           // 선택된 사진들의 "경로" 집합
+  final Map&lt;String, AnalysisResult&gt; results; // cacheKey → AI 분석 결과
+  // ...
+}</code></pre>
+<ul>
+  <li><strong>선택의 식별자는 <code>Photo.path</code> (절대 경로)</strong>입니다. 인덱스가 아닌 경로로 저장하므로, 목록이 재정렬되거나 일부가 제거돼도 선택이 엉뚱한 사진으로 옮겨가지 않습니다.</li>
+  <li><code>picked</code>는 <code>Set</code>이라 중복이 없고, 포함 여부 확인이 O(1)입니다. 그리드의 각 타일은 <code>picked.contains(photo.path)</code>만 구독하므로, 한 장을 선택해도 그 타일 하나만 리빌드됩니다.</li>
+  <li>분석 결과 <code>results</code>는 <code>Photo.cacheKey</code>(<code>경로::수정시각::바이트수</code>)로 색인됩니다. 자동 선별은 이 점수를 사용합니다.</li>
+</ul>
+
+<!-- 3 -->
+<h2 id="manual"><span class="num">03</span>수동 선택 동작</h2>
+<p>모든 수동 선택은 <code>GalleryController</code>의 메서드로 수렴합니다. <span class="filepath">lib/features/gallery/gallery_controller.dart</span></p>
+
+<table>
+  <thead><tr><th style="width:30%">메서드</th><th>동작</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><code>togglePickCurrent()</code></td>
+      <td>커서가 가리키는 사진의 선택을 토글. <kbd>Space</kbd> 및 디테일 뷰에서 호출됩니다.</td>
+    </tr>
+    <tr>
+      <td><code>togglePickByPath(path)</code></td>
+      <td>커서와 무관하게 <em>특정</em> 사진을 토글. 이미 선택돼 있으면 해제, 아니면 추가. 그리드/필름스트립/디테일 뷰의 <strong>우클릭</strong>이 이걸 부릅니다.</td>
+    </tr>
+    <tr>
+      <td><code>pickAll()</code></td>
+      <td>현재 목록의 모든 사진을 선택. <kbd>Ctrl/⌘ + A</kbd></td>
+    </tr>
+    <tr>
+      <td><code>unpickAll()</code></td>
+      <td>선택 전체 해제 (<code>picked</code>를 비움). <kbd>Ctrl/⌘ + D</kbd></td>
+    </tr>
+  </tbody>
+</table>
+
+<p>토글의 핵심 구현은 <code>Set</code>의 <code>add</code> 반환값을 이용한 단 두 줄입니다.</p>
+<pre><code>void togglePickByPath(String path) {
+  final picked = {...state.picked};
+  if (!picked.add(path)) picked.remove(path); // 추가 실패(=이미 있음) → 제거
+  state = state.copyWith(picked: picked);
+}</code></pre>
+<div class="note">우클릭으로 선택하는 흐름은 커서를 이동시키지 않습니다. 즉 키보드로 사진을 훑어보면서(<kbd>←</kbd><kbd>→</kbd>) 동시에 마우스로 마음에 드는 컷만 우클릭해 모아두는 작업이 자연스럽게 됩니다.</div>
+
+<!-- 4 -->
+<h2 id="auto"><span class="num">04</span>자동 선별 — Select Best Shots</h2>
+<p>우상단 <strong>별(★) 버튼</strong>이 자동 선별입니다. AI 분석 점수를 기준으로 상위권 사진을 한 번에 선택에 추가합니다. (분석 결과가 하나도 없으면 버튼은 비활성화됩니다.)</p>
+<pre><code>// gallery_controller.dart
+void selectBest({double topPercentile = 0.2}) {
+  final selector = ref.read(selectBestShotsProvider);
+  final best = selector(
+    photos: state.photos,
+    resultsByCacheKey: state.results,
+    topPercentile: topPercentile, // 기본 상위 20%
+  );
+  state = state.copyWith(
+    picked: {...state.picked, ...best.map((p) =&gt; p.path)}, // 기존 선택에 "추가"
+  );
+}</code></pre>
+<ul>
+  <li><strong>덮어쓰지 않고 합칩니다(additive).</strong> 손으로 골라둔 선택은 유지한 채, 자동 선별 결과를 <code>Set</code> 합집합으로 더합니다. 완전히 새로 시작하려면 먼저 <kbd>Ctrl/⌘ + D</kbd>로 비우면 됩니다.</li>
+  <li>점수의 출처는 활성 모델의 <code>qualityScore</code>(0~10)입니다. NIMA 계열은 MOS(1~10), MANIQA 계열은 시그모이드 출력×10입니다. 모델을 바꾸면 인메모리 결과가 초기화되므로, 자동 선별은 항상 현재 모델 기준입니다.</li>
+</ul>
+
+<!-- 5 -->
+<h2 id="algorithm"><span class="num">05</span>선별 알고리즘과 계산 예시</h2>
+<p>실제 선별 로직은 순수 도메인 코드인 <code>SelectBestShots</code>에 있습니다(Flutter/IO 의존 없음, 그래서 단위 테스트가 쉽습니다). <span class="filepath">lib/domain/usecases/select_best_shots.dart</span></p>
+
+<h3>단계</h3>
+<ol>
+  <li><strong>분석된 사진만 추리기</strong> — <code>results</code>에 항목이 있는 사진만 후보. 분석되지 않은 사진은 애초에 제외됩니다.</li>
+  <li><strong>점수 오름차순 정렬</strong> — 후보들의 <code>qualityScore</code>를 정렬.</li>
+  <li><strong>임계값(threshold) 산출</strong> — <code>(1 − topPercentile)</code> 분위수 위치의 점수를 임계값으로 삼습니다.
+    <pre><code>cutoffIndex = floor(N × (1 − topPercentile)).clamp(0, N−1)
+threshold   = scoresAsc[cutoffIndex]</code></pre>
+  </li>
+  <li><strong>임계값 이상 모두 선택</strong> — <code>qualityScore &gt;= threshold</code>인 사진을 전부 반환.</li>
+</ol>
+
+<div class="note warn"><strong>경계의 동점(tie)은 모두 포함</strong>합니다. 임계값과 같은 점수가 여럿이면 결과 집합이 <code>topPercentile × N</code>보다 약간 커질 수 있는데, 이는 임의의 동점 탈락보다 바람직하다고 보아 의도된 동작입니다.</div>
+
+<h3>예시 — 10장, 상위 20%</h3>
+<p>점수를 오름차순 정렬했다고 가정합니다. <code>N = 10</code>, <code>topPercentile = 0.2</code> →
+<code>cutoffIndex = floor(10 × 0.8) = 8</code> → 인덱스 8의 점수가 임계값.</p>
+<div class="example-row">
+  <span class="cell cut">2.1</span>
+  <span class="cell cut">3.4</span>
+  <span class="cell cut">4.0</span>
+  <span class="cell cut">5.2</span>
+  <span class="cell cut">5.9</span>
+  <span class="cell cut">6.3</span>
+  <span class="cell cut">7.1</span>
+  <span class="cell cut">7.8</span>
+  <span class="cell thr">8.4 ▲</span>
+  <span class="cell kept">9.2</span>
+</div>
+<p class="muted" style="font-size:13.5px">
+  인덱스: 0…9 / <span style="color:var(--accent-2)">▲ = cutoffIndex 8, threshold = 8.4</span> /
+  <span style="color:var(--pick)">초록 = 선택됨(≥ 8.4)</span> → 최종 <strong>2장</strong> 선택 (8.4, 9.2).
+</p>
+<p>만약 인덱스 7의 점수도 8.4였다면(동점) 3장이 선택됩니다. 분석된 사진이 0장이면 빈 결과를 반환하고 선택은 변하지 않습니다.</p>
+
+<!-- 6 -->
+<h2 id="move"><span class="num">06</span>선택본 이동 — Move to BestShots</h2>
+<p>별 버튼 오른쪽의 <strong>이동 버튼</strong>은 선택된 사진들을 현재 디렉토리 아래 <code>BestShots</code> 폴더로 물리적으로 옮깁니다(폴더가 없으면 생성). 선택이 비어 있으면 비활성화됩니다.</p>
+<pre><code>// gallery_controller.dart — 요지
+Future&lt;int&gt; moveSelectedToBestShots() async {
+  final destDir = p.join(state.rootPath!, 'BestShots');
+  for (final photo in /* picked 에 속한 사진들 */) {
+    await repo.movePhoto(photo, destDir); // 같은 볼륨이면 rename, 다르면 copy+delete
+  }
+  // 이동된 사진을 photos/picked/results 에서 제거하고 커서를 보정
+}</code></pre>
+<ul>
+  <li>파일 이동은 데이터 계층의 <code>PhotoRepository.movePhoto</code>가 담당합니다. 같은 드라이브면 원자적 <code>rename</code>, 드라이브가 다르면 <code>copy</code> 후 <code>delete</code>로 폴백합니다.</li>
+  <li>이름 충돌 시 <code>이름 (1).jpg</code>, <code>이름 (2).jpg</code> 식으로 자동 회피합니다.</li>
+  <li>이동에 성공한 사진은 인메모리 상태(<code>photos</code>, <code>picked</code>, <code>results</code>)에서 제거되고, 커서 인덱스는 남은 범위로 클램프됩니다. 완료 시 "Moved N photos to BestShots" 스낵바를 띄웁니다.</li>
+  <li>일부만 실패하면 성공분은 그대로 반영하고, 실패는 에러 채널로 표면화됩니다.</li>
+</ul>
+<div class="note">디렉토리 스캐너는 재귀적이라, 폴더를 다시 열면 <code>BestShots</code> 안의 사진도 다시 스캔되어 나타납니다. 현재는 이동 직후 인메모리 목록에서만 감추는 방식입니다.</div>
+
+<!-- 7 -->
+<h2 id="shortcuts"><span class="num">07</span>단축키 · 마우스 동작</h2>
+<p>입력은 <code>RawKeyboardListener</code> 대신 <code>Shortcuts</code>/<code>Actions</code>로 구현되어 포커스 트래버설을 존중합니다. <span class="filepath">lib/features/gallery/widgets/gallery_shortcuts.dart</span></p>
+<table>
+  <thead><tr><th style="width:34%">입력</th><th>동작</th><th style="width:20%">분류</th></tr></thead>
+  <tbody>
+    <tr><td class="kbd"><kbd>←</kbd> <kbd>→</kbd></td><td>커서 이동(±1)</td><td><span class="pill state">커서</span></td></tr>
+    <tr><td class="kbd"><kbd>↑</kbd> <kbd>↓</kbd></td><td>커서 이동(±한 행 = crossAxisCount)</td><td><span class="pill state">커서</span></td></tr>
+    <tr><td class="kbd"><kbd>Space</kbd></td><td>커서 사진 선택 토글</td><td><span class="pill action">선택</span></td></tr>
+    <tr><td class="kbd"><kbd>Enter</kbd></td><td>디테일 뷰 열기 (뷰에서는 닫기)</td><td><span class="pill state">탐색</span></td></tr>
+    <tr><td class="kbd"><kbd>Ctrl/⌘</kbd> + <kbd>A</kbd></td><td>전체 선택</td><td><span class="pill action">선택</span></td></tr>
+    <tr><td class="kbd"><kbd>Ctrl/⌘</kbd> + <kbd>D</kbd></td><td>전체 선택 해제</td><td><span class="pill action">선택</span></td></tr>
+    <tr><td class="kbd">마우스 <strong>좌클릭</strong></td><td>해당 타일로 커서 이동</td><td><span class="pill state">커서</span></td></tr>
+    <tr><td class="kbd">마우스 <strong>더블클릭</strong></td><td>커서 이동 + 디테일 뷰 열기</td><td><span class="pill state">탐색</span></td></tr>
+    <tr><td class="kbd">마우스 <strong>우클릭</strong></td><td>해당 사진 선택 토글(커서 불변)</td><td><span class="pill action">선택</span></td></tr>
+  </tbody>
+</table>
+<p class="muted" style="font-size:14px">디테일 뷰의 단축키는 <span class="filepath">lib/features/viewer/widgets/viewer_shortcuts.dart</span>에 있으며, <kbd>←</kbd><kbd>→</kbd> 이동, <kbd>Space</kbd> 선택 토글, <kbd>Esc</kbd>/<kbd>Enter</kbd> 닫기를 제공합니다.</p>
+
+<!-- 8 -->
+<h2 id="flow"><span class="num">08</span>데이터 흐름과 아키텍처</h2>
+<p>선택은 UI → 컨트롤러 → (자동 선별의 경우) 도메인 유스케이스로 흐릅니다. UI는 절대 데이터/도메인 내부를 건너뛰지 않습니다.</p>
+<div class="panel">
+<div class="flow">
+[자동 선별 ★]
+  GalleryScreen 별 버튼
+        │  ctrl.selectBest()
+        ▼
+  GalleryController ──read──▶ selectBestShotsProvider
+        │                         │
+        │                         ▼
+        │                   SelectBestShots(use case)  ← 순수 도메인, 점수 분위수 계산
+        │                         │  List&lt;Photo&gt; (상위권)
+        ◀─────────────────────────┘
+        │  picked = picked ∪ best.paths
+        ▼
+  GalleryState.copyWith(picked: …)  ──▶  그리드 타일 중 해당 path 만 리빌드
+
+[수동 선택]
+  Space / 우클릭 / Ctrl+A / Ctrl+D
+        ▼
+  GalleryController.toggle… / pickAll / unpickAll
+        ▼
+  GalleryState.picked 갱신
+
+[선택본 이동]
+  이동 버튼 ▶ ctrl.moveSelectedToBestShots()
+        ▼
+  PhotoRepository.movePhoto()  (rename / copy+delete)
+        ▼
+  photos·picked·results 에서 제거 + 스낵바
+</div>
+</div>
+<ul>
+  <li><strong>상태 관리</strong>: Riverpod <code>@riverpod</code> 코드젠 기반의 <code>GalleryController</code>가 단일 진실 공급원입니다.</li>
+  <li><strong>세분화된 구독</strong>: 각 타일이 자기 <code>path</code>의 <code>picked</code> 포함 여부만 <code>select</code>로 구독하므로, 수천 장 규모에서도 선택 토글이 전체 그리드를 리빌드하지 않습니다.</li>
+  <li><strong>순수 도메인 분리</strong>: 선별 알고리즘은 <code>lib/domain/</code>의 순수 함수라 위젯 없이 테스트됩니다(<span class="filepath">test/domain/select_best_shots_test.dart</span>).</li>
+</ul>
+
+<!-- 9 -->
+<h2 id="edge"><span class="num">09</span>경계 조건과 주의점</h2>
+<table>
+  <thead><tr><th style="width:38%">상황</th><th>동작</th></tr></thead>
+  <tbody>
+    <tr><td>분석 결과가 0개</td><td>별 버튼 비활성화. 호출돼도 <code>SelectBestShots</code>가 빈 목록 반환 → 선택 불변.</td></tr>
+    <tr><td>선택이 0개일 때 이동</td><td>이동 버튼 비활성화. <code>moveSelectedToBestShots</code>는 0을 반환하고 아무것도 하지 않음.</td></tr>
+    <tr><td>모델 전환</td><td>인메모리 <code>results</code>가 초기화되고 진행 중 분석은 취소됨. 자동 선별은 다시 분석해야 가능. (수동 <code>picked</code>는 유지)</td></tr>
+    <tr><td>파일 이동 중 일부 실패</td><td>성공분만 상태에서 제거하고 반영, 실패는 에러로 표면화.</td></tr>
+    <tr><td>이동 후 폴더 재오픈</td><td>스캐너가 재귀적이라 <code>BestShots</code> 내부 사진이 다시 목록에 나타남.</td></tr>
+    <tr><td>분석되지 않은 사진</td><td>자동 선별 후보에서 제외(점수가 없으므로). 수동 선택은 가능.</td></tr>
+  </tbody>
+</table>
+
+<footer>
+  Selecto · 사진 선택 동작 보고서 ·
+  근거 코드: <span class="filepath">gallery_controller.dart</span>,
+  <span class="filepath">gallery_state.dart</span>,
+  <span class="filepath">select_best_shots.dart</span>,
+  <span class="filepath">gallery_shortcuts.dart</span>,
+  <span class="filepath">viewer_screen.dart</span>
+</footer>
+
+</div>
+</body>
+</html>
