@@ -117,40 +117,67 @@ class _ZoomableImage extends StatefulWidget {
   State<_ZoomableImage> createState() => _ZoomableImageState();
 }
 
-class _ZoomableImageState extends State<_ZoomableImage> {
+class _ZoomableImageState extends State<_ZoomableImage>
+    with SingleTickerProviderStateMixin {
   final _controller = TransformationController();
+  // Drives the eased transitions for both double-tap and Ctrl+wheel zoom
+  // so scale changes glide instead of snapping.
+  late final AnimationController _animController = AnimationController(
+    vsync: this,
+    duration: _doubleTapDuration,
+  )..addListener(() {
+      final anim = _animation;
+      if (anim != null) _controller.value = anim.value;
+    });
+  Animation<Matrix4>? _animation;
   Offset? _lastTapPosition;
 
   static const double _minScale = 1.0;
   static const double _maxScale = 8.0;
   static const double _doubleTapScale = 2.0;
+  static const _doubleTapDuration = Duration(milliseconds: 220);
+  static const _wheelDuration = Duration(milliseconds: 120);
 
   @override
   void dispose() {
+    _animController.dispose();
     _controller.dispose();
     super.dispose();
   }
 
   double get _scale => _controller.value.getMaxScaleOnAxis();
 
+  /// Eased tween from the current transform to [target]. Restarting mid-flight
+  /// is fine — `begin` is read from wherever the matrix currently sits, so
+  /// rapid wheel notches chase smoothly instead of jumping.
+  void _animateTo(Matrix4 target, Duration duration) {
+    _animation = Matrix4Tween(begin: _controller.value, end: target).animate(
+      CurvedAnimation(parent: _animController, curve: Curves.easeOutCubic),
+    );
+    _animController
+      ..duration = duration
+      ..reset()
+      ..forward();
+  }
+
   void _handleDoubleTap() {
+    final Matrix4 target;
     if (_scale > _minScale + 0.01) {
-      // Already zoomed — snap back to fit.
-      _controller.value = Matrix4.identity();
-      return;
-    }
-    // Zoom in to 200%, centered on the point the user clicked.
-    final focal = _lastTapPosition;
-    const z = _doubleTapScale;
-    if (focal == null) {
-      _controller.value = Matrix4.diagonal3Values(z, z, 1);
+      // Already zoomed — glide back to fit.
+      target = Matrix4.identity();
     } else {
-      // T(-focal·(z-1)) · S(z): scale up, then shift so the tapped point
-      // stays put under the cursor.
-      _controller.value =
-          Matrix4.translationValues(-focal.dx * (z - 1), -focal.dy * (z - 1), 0)
-            ..multiply(Matrix4.diagonal3Values(z, z, 1));
+      // Zoom in to 200%, centered on the point the user clicked.
+      final focal = _lastTapPosition;
+      const z = _doubleTapScale;
+      target = focal == null
+          ? Matrix4.diagonal3Values(z, z, 1)
+          // T(-focal·(z-1)) · S(z): scale up, then shift so the tapped
+          // point stays put under the cursor.
+          : (Matrix4.translationValues(
+              -focal.dx * (z - 1), -focal.dy * (z - 1), 0)
+            ..multiply(Matrix4.diagonal3Values(z, z, 1)));
     }
+    _animateTo(target, _doubleTapDuration);
   }
 
   void _handlePointerSignal(PointerSignalEvent event) {
@@ -158,7 +185,7 @@ class _ZoomableImageState extends State<_ZoomableImage> {
     // Only zoom when Ctrl is held; otherwise let the scroll fall through.
     if (!HardwareKeyboard.instance.isControlPressed) return;
 
-    final factor = event.scrollDelta.dy > 0 ? 0.9 : 1.1;
+    final factor = event.scrollDelta.dy > 0 ? 0.85 : 1.15;
     final target = (_scale * factor).clamp(_minScale, _maxScale);
     final applied = target / _scale;
     if ((applied - 1.0).abs() < 1e-6) return;
@@ -168,7 +195,7 @@ class _ZoomableImageState extends State<_ZoomableImage> {
     final zoom = Matrix4.translationValues(focal.dx, focal.dy, 0)
       ..multiply(Matrix4.diagonal3Values(applied, applied, 1))
       ..multiply(Matrix4.translationValues(-focal.dx, -focal.dy, 0));
-    _controller.value = zoom * _controller.value;
+    _animateTo(zoom * _controller.value, _wheelDuration);
   }
 
   @override
