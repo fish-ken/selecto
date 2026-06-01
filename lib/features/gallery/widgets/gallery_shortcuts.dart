@@ -10,6 +10,19 @@ class MoveCursorIntent extends Intent {
   final int delta;
 }
 
+/// Shift+Arrow — extend the contiguous range selection by [delta].
+class ExtendSelectionIntent extends Intent {
+  const ExtendSelectionIntent(this.delta);
+  final int delta;
+}
+
+/// Ctrl/Cmd+Arrow — move the cursor by [delta] and add the focused photo
+/// to the selection (keeps the existing selection).
+class AddSelectionIntent extends Intent {
+  const AddSelectionIntent(this.delta);
+  final int delta;
+}
+
 class TogglePickIntent extends Intent {
   const TogglePickIntent();
 }
@@ -31,6 +44,8 @@ class GalleryShortcuts extends StatelessWidget {
     super.key,
     required this.crossAxisCount,
     required this.onMove,
+    required this.onExtendSelection,
+    required this.onAddSelection,
     required this.onTogglePick,
     required this.onPickAll,
     required this.onUnpickAll,
@@ -40,6 +55,8 @@ class GalleryShortcuts extends StatelessWidget {
 
   final int crossAxisCount;
   final void Function(int delta) onMove;
+  final void Function(int delta) onExtendSelection;
+  final void Function(int delta) onAddSelection;
   final VoidCallback onTogglePick;
   final VoidCallback onPickAll;
   final VoidCallback onUnpickAll;
@@ -54,8 +71,36 @@ class GalleryShortcuts extends StatelessWidget {
             const MoveCursorIntent(-1),
         const SingleActivator(LogicalKeyboardKey.arrowRight):
             const MoveCursorIntent(1),
-        SingleActivator(LogicalKeyboardKey.arrowUp): MoveCursorIntent(-crossAxisCount),
-        SingleActivator(LogicalKeyboardKey.arrowDown): MoveCursorIntent(crossAxisCount),
+        const SingleActivator(LogicalKeyboardKey.arrowUp):
+            MoveCursorIntent(-crossAxisCount),
+        const SingleActivator(LogicalKeyboardKey.arrowDown):
+            MoveCursorIntent(crossAxisCount),
+        // Shift+Arrow — extend the contiguous range selection.
+        const SingleActivator(LogicalKeyboardKey.arrowLeft, shift: true):
+            const ExtendSelectionIntent(-1),
+        const SingleActivator(LogicalKeyboardKey.arrowRight, shift: true):
+            const ExtendSelectionIntent(1),
+        const SingleActivator(LogicalKeyboardKey.arrowUp, shift: true):
+            ExtendSelectionIntent(-crossAxisCount),
+        const SingleActivator(LogicalKeyboardKey.arrowDown, shift: true):
+            ExtendSelectionIntent(crossAxisCount),
+        // Ctrl/Cmd+Arrow — move cursor and add the focused photo to selection.
+        const SingleActivator(LogicalKeyboardKey.arrowLeft, control: true):
+            const AddSelectionIntent(-1),
+        const SingleActivator(LogicalKeyboardKey.arrowRight, control: true):
+            const AddSelectionIntent(1),
+        const SingleActivator(LogicalKeyboardKey.arrowUp, control: true):
+            AddSelectionIntent(-crossAxisCount),
+        const SingleActivator(LogicalKeyboardKey.arrowDown, control: true):
+            AddSelectionIntent(crossAxisCount),
+        const SingleActivator(LogicalKeyboardKey.arrowLeft, meta: true):
+            const AddSelectionIntent(-1),
+        const SingleActivator(LogicalKeyboardKey.arrowRight, meta: true):
+            const AddSelectionIntent(1),
+        const SingleActivator(LogicalKeyboardKey.arrowUp, meta: true):
+            AddSelectionIntent(-crossAxisCount),
+        const SingleActivator(LogicalKeyboardKey.arrowDown, meta: true):
+            AddSelectionIntent(crossAxisCount),
         const SingleActivator(LogicalKeyboardKey.space): const TogglePickIntent(),
         const SingleActivator(LogicalKeyboardKey.enter): const OpenViewerIntent(),
         const SingleActivator(LogicalKeyboardKey.keyA, control: true): const PickAllIntent(),
@@ -68,6 +113,18 @@ class GalleryShortcuts extends StatelessWidget {
           MoveCursorIntent: CallbackAction<MoveCursorIntent>(
             onInvoke: (intent) {
               onMove(intent.delta);
+              return null;
+            },
+          ),
+          ExtendSelectionIntent: CallbackAction<ExtendSelectionIntent>(
+            onInvoke: (intent) {
+              onExtendSelection(intent.delta);
+              return null;
+            },
+          ),
+          AddSelectionIntent: CallbackAction<AddSelectionIntent>(
+            onInvoke: (intent) {
+              onAddSelection(intent.delta);
               return null;
             },
           ),

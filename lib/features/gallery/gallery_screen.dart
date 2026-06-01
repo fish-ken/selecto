@@ -219,6 +219,8 @@ class _PhotoGrid extends ConsumerWidget {
     return GalleryShortcuts(
       crossAxisCount: crossAxisCount,
       onMove: ctrl.moveCursor,
+      onExtendSelection: ctrl.extendSelection,
+      onAddSelection: ctrl.addCursorSelection,
       onTogglePick: ctrl.togglePickCurrent,
       onPickAll: ctrl.pickAll,
       onUnpickAll: ctrl.unpickAll,

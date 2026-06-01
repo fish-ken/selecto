@@ -57,6 +57,8 @@ class ViewerScreen extends ConsumerWidget {
       backgroundColor: Colors.black,
       body: ViewerShortcuts(
         onMove: ctrl.moveCursor,
+        onExtendSelection: ctrl.extendSelection,
+        onAddSelection: ctrl.addCursorSelection,
         onTogglePick: ctrl.togglePickCurrent,
         onClose: close,
         child: Column(

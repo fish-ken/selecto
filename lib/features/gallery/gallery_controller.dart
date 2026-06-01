@@ -182,6 +182,31 @@ class GalleryController extends _$GalleryController {
     state = state.copyWith(selectedIndex: i, picked: range);
   }
 
+  /// Shift+Arrow — extend the contiguous range selection by [delta] from the
+  /// fixed anchor (selection becomes anchor..newCursor; reversing shrinks it).
+  /// The keyboard analogue of [selectRangeTo].
+  void extendSelection(int delta) {
+    if (state.photos.isEmpty) return;
+    final next = (state.selectedIndex + delta).clamp(0, state.photos.length - 1);
+    if (next == state.selectedIndex) return;
+    selectRangeTo(next);
+  }
+
+  /// Ctrl/Cmd+Arrow — move the cursor by [delta] and add the newly focused
+  /// photo to the selection, preserving everything already selected (a plain
+  /// arrow would instead collapse to a single selection). The keyboard
+  /// analogue of Ctrl+click building a multi-selection.
+  void addCursorSelection(int delta) {
+    if (state.photos.isEmpty) return;
+    final next = (state.selectedIndex + delta).clamp(0, state.photos.length - 1);
+    if (next == state.selectedIndex) return;
+    state = state.copyWith(
+      selectedIndex: next,
+      selectionAnchor: next,
+      picked: {...state.picked, state.photos[next].path},
+    );
+  }
+
   void togglePickCurrent() {
     final photo = state.currentPhoto;
     if (photo == null) return;
