@@ -100,6 +100,14 @@ class ViewerScreen extends ConsumerWidget {
                     ctrl.selectSingle(i);
                   }
                 },
+                onMoveToBestShots: (i) =>
+                    _relocate(context, ref, state.photos[i].path,
+                        toBestShots: true),
+                onRemoveFromBestShots: (i) =>
+                    _relocate(context, ref, state.photos[i].path,
+                        toBestShots: false),
+                moveToBestShotsLabel: t.tr('moveToBestShots'),
+                removeFromBestShotsLabel: t.tr('removeFromBestShots'),
               ),
             ),
           ],
@@ -332,4 +340,37 @@ class _TopBar extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Moves [path] (or the whole current selection, if [path] is part of it)
+/// into / out of the `BestShots` folder and reports the count via SnackBar.
+/// Mirrors the gallery grid's right-click relocate so both views behave the
+/// same. Errors surface through the controller's state listener.
+Future<void> _relocate(
+  BuildContext context,
+  WidgetRef ref,
+  String path, {
+  required bool toBestShots,
+}) async {
+  final ctrl = ref.read(galleryControllerProvider.notifier);
+  final picked = ref.read(galleryControllerProvider).picked;
+  final targets = picked.contains(path) ? picked.toList() : [path];
+  final messenger = ScaffoldMessenger.maybeOf(context);
+  final t = ref.read(stringsProvider);
+
+  final moved = toBestShots
+      ? await ctrl.moveToBestShots(targets)
+      : await ctrl.removeFromBestShots(targets);
+  if (moved <= 0) return;
+
+  messenger?.showSnackBar(
+    SnackBar(
+      content: Text(
+        toBestShots
+            ? t.tr('movedToBestShots', {'count': moved.toString()})
+            : t.tr('movedOutOfBestShots', {'count': moved.toString()}),
+      ),
+      duration: const Duration(seconds: 2),
+    ),
+  );
 }

@@ -17,6 +17,10 @@ class Filmstrip extends StatefulWidget {
     required this.picked,
     required this.resultsByCacheKey,
     required this.onTap,
+    required this.onMoveToBestShots,
+    required this.onRemoveFromBestShots,
+    required this.moveToBestShotsLabel,
+    required this.removeFromBestShotsLabel,
   });
 
   final List<Photo> photos;
@@ -24,6 +28,13 @@ class Filmstrip extends StatefulWidget {
   final Set<String> picked;
   final Map<String, AnalysisResult> resultsByCacheKey;
   final ValueChanged<int> onTap;
+
+  /// Right-click context-menu actions (by photo index), matching the
+  /// gallery tile's BestShots move/remove behavior.
+  final ValueChanged<int> onMoveToBestShots;
+  final ValueChanged<int> onRemoveFromBestShots;
+  final String moveToBestShotsLabel;
+  final String removeFromBestShotsLabel;
 
   @override
   State<Filmstrip> createState() => _FilmstripState();
@@ -110,6 +121,10 @@ class _FilmstripState extends State<Filmstrip> {
                 _skipNextEnsureVisible = true;
                 widget.onTap(i);
               },
+              onMoveToBestShots: () => widget.onMoveToBestShots(i),
+              onRemoveFromBestShots: () => widget.onRemoveFromBestShots(i),
+              moveToBestShotsLabel: widget.moveToBestShotsLabel,
+              removeFromBestShotsLabel: widget.removeFromBestShotsLabel,
             );
           },
         ),
@@ -125,6 +140,10 @@ class _FilmstripTile extends StatelessWidget {
     required this.isPicked,
     required this.isInBestShots,
     required this.onTap,
+    required this.onMoveToBestShots,
+    required this.onRemoveFromBestShots,
+    required this.moveToBestShotsLabel,
+    required this.removeFromBestShotsLabel,
     this.analysis,
   });
 
@@ -133,7 +152,48 @@ class _FilmstripTile extends StatelessWidget {
   final bool isPicked;
   final bool isInBestShots;
   final VoidCallback onTap;
+  final VoidCallback onMoveToBestShots;
+  final VoidCallback onRemoveFromBestShots;
+  final String moveToBestShotsLabel;
+  final String removeFromBestShotsLabel;
   final AnalysisResult? analysis;
+
+  /// Right-click context menu — identical to the gallery tile's: move the
+  /// photo (or the whole current selection) into / out of BestShots.
+  Future<void> _showContextMenu(
+    BuildContext context,
+    Offset globalPosition,
+  ) async {
+    final overlay =
+        Overlay.of(context).context.findRenderObject() as RenderBox;
+    final action = await showMenu<_FilmstripMenuAction>(
+      context: context,
+      position: RelativeRect.fromRect(
+        globalPosition & Size.zero,
+        Offset.zero & overlay.size,
+      ),
+      items: [
+        PopupMenuItem(
+          value: _FilmstripMenuAction.moveToBestShots,
+          enabled: !isInBestShots,
+          child: Text(moveToBestShotsLabel),
+        ),
+        PopupMenuItem(
+          value: _FilmstripMenuAction.removeFromBestShots,
+          enabled: isInBestShots,
+          child: Text(removeFromBestShotsLabel),
+        ),
+      ],
+    );
+    switch (action) {
+      case _FilmstripMenuAction.moveToBestShots:
+        onMoveToBestShots();
+      case _FilmstripMenuAction.removeFromBestShots:
+        onRemoveFromBestShots();
+      case null:
+        break;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -144,6 +204,7 @@ class _FilmstripTile extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 4),
       child: GestureDetector(
         onTap: onTap,
+        onSecondaryTapDown: (d) => _showContextMenu(context, d.globalPosition),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 80),
           decoration: BoxDecoration(
@@ -236,3 +297,5 @@ class _FilmstripTile extends StatelessWidget {
     );
   }
 }
+
+enum _FilmstripMenuAction { moveToBestShots, removeFromBestShots }
