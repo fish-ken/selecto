@@ -23,7 +23,6 @@
   "moveToBestShots": "선택 항목을 BestShots로 이동",
   "removeFromBestShots": "BestShots에서 제거",
   "viewerClose": "닫기 (Esc)",
-  "selected": "선택됨",
   "viewerPosition": "{index} / {total}",
   "settingsTitle": "환경설정",
   "language": "언어",

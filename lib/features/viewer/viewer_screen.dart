@@ -64,11 +64,10 @@ class ViewerScreen extends ConsumerWidget {
         child: Column(
           children: [
             _TopBar(
-              isPicked: state.picked.contains(photo.path),
+              isInBestShots: isInBestShotsPath(photo.path),
               fileName: photo.path.split(RegExp(r'[\\/]')).last,
               onClose: close,
               closeTooltip: t.tr('viewerClose'),
-              selectedLabel: t.tr('selected'),
               positionLabel: t.tr('viewerPosition', {
                 'index': (state.selectedIndex + 1).toString(),
                 'total': state.photos.length.toString(),
@@ -270,19 +269,19 @@ class _ZoomableImageState extends State<_ZoomableImage>
 
 class _TopBar extends StatelessWidget {
   const _TopBar({
-    required this.isPicked,
+    required this.isInBestShots,
     required this.fileName,
     required this.onClose,
     required this.closeTooltip,
-    required this.selectedLabel,
     required this.positionLabel,
   });
 
-  final bool isPicked;
+  /// Whether the current photo lives in a `BestShots` folder — shown with
+  /// the same teal square check badge as the gallery tile's top-right.
+  final bool isInBestShots;
   final String fileName;
   final VoidCallback onClose;
   final String closeTooltip;
-  final String selectedLabel;
   final String positionLabel;
 
   @override
@@ -305,11 +304,24 @@ class _TopBar extends StatelessWidget {
               style: const TextStyle(color: Colors.white70),
             ),
           ),
-          if (isPicked) ...[
-            const Icon(Icons.check_circle, color: Colors.tealAccent, size: 18),
-            const SizedBox(width: 6),
-            Text(selectedLabel,
-                style: const TextStyle(color: Colors.tealAccent, fontSize: 12)),
+          if (isInBestShots) ...[
+            // Same teal rounded-square check badge as the gallery tile's
+            // top-right BestShots marker.
+            Container(
+              padding: const EdgeInsets.all(3),
+              decoration: BoxDecoration(
+                color: Colors.teal,
+                borderRadius: BorderRadius.circular(5),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Colors.black45,
+                    blurRadius: 3,
+                    offset: Offset(0, 1),
+                  ),
+                ],
+              ),
+              child: const Icon(Icons.check, size: 14, color: Colors.white),
+            ),
             const SizedBox(width: 16),
           ],
           Text(

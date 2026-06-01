@@ -23,7 +23,6 @@
   "moveToBestShots": "Move selected to BestShots",
   "removeFromBestShots": "Remove from BestShots",
   "viewerClose": "Close (Esc)",
-  "selected": "Selected",
   "viewerPosition": "{index} / {total}",
   "settingsTitle": "Settings",
   "language": "Language",
