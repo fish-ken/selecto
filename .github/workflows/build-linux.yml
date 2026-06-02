@@ -8,9 +8,6 @@ on:
 env:
   FLUTTER_CHANNEL: stable
   ORG: com.fish-ken
-  # actions/checkout·upload-artifact(Node 20) 의 deprecation 경고 제거 —
-  # 모든 JS 액션을 Node 24 로 강제 실행. (2026-06-16 이후엔 기본값이라 무해)
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
 jobs:
   build:
@@ -18,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout (LFS 모델 포함)
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           lfs: true
 
@@ -49,7 +46,7 @@ jobs:
 
       # bundle/ 디렉터리 전체가 실행에 필요하므로 통째로 업로드.
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: selecto-linux-x64
           path: build/linux/x64/release/bundle/
