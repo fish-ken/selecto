@@ -1,0 +1,53 @@
+name: Build Linux (x64)
+
+# 단독 실행과 build-all.yml 에서의 호출(workflow_call) 모두 지원.
+on:
+  workflow_dispatch:
+  workflow_call:
+
+env:
+  FLUTTER_CHANNEL: stable
+  ORG: com.fish-ken
+
+jobs:
+  build:
+    name: Build Linux x64 release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout (LFS 모델 포함)
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      # Flutter Linux 데스크톱 빌드에 필요한 네이티브 의존성.
+      - name: Install Linux desktop build deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: ${{ env.FLUTTER_CHANNEL }}
+          cache: true
+
+      # 플랫폼 폴더(linux/)는 커밋되지 않으므로 매번 생성.
+      - name: Generate platform scaffolding (linux/)
+        run: flutter create --platforms=linux --org=${{ env.ORG }} .
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Run code generation
+        run: dart run build_runner build --delete-conflicting-outputs
+
+      - name: Build Linux release
+        run: flutter build linux --release
+
+      # bundle/ 디렉터리 전체가 실행에 필요하므로 통째로 업로드.
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: selecto-linux-x64
+          path: build/linux/x64/release/bundle/
+          if-no-files-found: error

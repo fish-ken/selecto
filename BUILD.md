@@ -64,6 +64,21 @@ flutter build linux --release
 
 ONNX 모델을 빼고 깨끗하게 빌드한 Windows release 는 **40–60 MB** 정도가 정상입니다. 큰 부분은 `flutter_windows.dll`(~20 MB), `onnxruntime.dll`(~10 MB), `sqlite3.dll`(~1.5 MB) 입니다. 100 MB 를 넘어가면 `assets/models/` 안에 `.onnx` 모델이 함께 패키징됐는지 확인하세요 (LFS 로 추적되므로 의도치 않게 포함될 수 있음).
 
+## CI (GitHub Actions)
+
+`.github/workflows/` 에 릴리스 빌드 워크플로가 있습니다.
+
+| 파일 | 역할 |
+| --- | --- |
+| `build-windows.yml` | Windows x64 릴리스 빌드 → `selecto-windows-x64` 아티팩트 |
+| `build-macos.yml` | macOS 릴리스 빌드(.app zip) → `selecto-macos` 아티팩트 |
+| `build-linux.yml` | Linux x64 릴리스 빌드 → `selecto-linux-x64` 아티팩트 |
+| `build-all.yml` | 위 세 워크플로를 **한 번에 병렬 호출**하는 배치 진입점 |
+
+- 각 OS 워크플로는 Actions 탭에서 **개별로 "Run workflow"** 할 수 있고(`workflow_dispatch`), `build-all.yml` 이 `workflow_call` 로 호출합니다.
+- `build-all.yml` 은 수동 실행 또는 **`v*` 태그 푸시**(예: `v0.1.0`) 시 3-OS 빌드를 동시에 돌립니다.
+- 각 워크플로는 fresh clone 과 동일하게 `flutter create` → `pub get` → `build_runner` → `flutter build <platform> --release` 순서로 실행하며, 모델은 LFS(`lfs: true`) 로 함께 체크아웃합니다. Flutter 는 `stable` 채널을 쓰며, 재현성이 필요하면 워크플로의 `FLUTTER_CHANNEL` 자리를 특정 버전으로 고정하세요.
+
 ## Distribution TODO
 
 아직 미구현 — 기여 환영합니다:

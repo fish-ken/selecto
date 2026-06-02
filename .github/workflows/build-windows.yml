@@ -1,0 +1,50 @@
+name: Build Windows (x64)
+
+# 단독 실행(Actions 탭의 "Run workflow")과, build-all.yml 에서의 호출
+# (workflow_call) 을 모두 지원합니다.
+on:
+  workflow_dispatch:
+  workflow_call:
+
+env:
+  # 필요 시 특정 버전 고정으로 바꾸세요: flutter-version: '3.29.0'
+  FLUTTER_CHANNEL: stable
+  ORG: com.fish-ken
+
+jobs:
+  build:
+    name: Build Windows x64 release
+    runs-on: windows-latest
+    steps:
+      - name: Checkout (LFS 모델 포함)
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: ${{ env.FLUTTER_CHANNEL }}
+          cache: true
+
+      # 플랫폼 폴더(windows/)는 저장소에 커밋되지 않으므로 매번 생성합니다.
+      - name: Generate platform scaffolding (windows/)
+        run: flutter create --platforms=windows --org=${{ env.ORG }} .
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      # *.g.dart (Riverpod/Drift/Freezed) 가 없으면 컴파일이 실패하므로 필수.
+      - name: Run code generation
+        run: dart run build_runner build --delete-conflicting-outputs
+
+      - name: Build Windows release
+        run: flutter build windows --release
+
+      # Release\ 폴더 전체(.exe + DLL + data\)를 배포해야 하므로 통째로 업로드.
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: selecto-windows-x64
+          path: build/windows/x64/runner/Release/
+          if-no-files-found: error
