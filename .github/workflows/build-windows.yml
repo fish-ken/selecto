@@ -10,6 +10,9 @@ env:
   # 필요 시 특정 버전 고정으로 바꾸세요: flutter-version: '3.29.0'
   FLUTTER_CHANNEL: stable
   ORG: com.fish-ken
+  # actions/checkout·upload-artifact(Node 20) 의 deprecation 경고 제거 —
+  # 모든 JS 액션을 Node 24 로 강제 실행. (2026-06-16 이후엔 기본값이라 무해)
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
 jobs:
   build:
