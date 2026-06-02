@@ -1,7 +1,9 @@
 # Selecto
 
+![](readme_screenshot_0.png)
 Windows · macOS · Linux 데스크톱용 **AI 기반 사진 컬링/선별 앱**.
-Flutter · Riverpod · ONNX Runtime(`dart:ffi`)으로 구성되어 있습니다.
+
+
 
 ## Quickstart
 
