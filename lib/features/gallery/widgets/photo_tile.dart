@@ -84,10 +84,16 @@ class PhotoTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final cacheDim = (thumbExtent * MediaQuery.devicePixelRatioOf(context))
-        .round()
-        .clamp(64, 1024)
-        .toInt();
+    // Decode resolution for the thumbnail. Snap it to coarse buckets instead
+    // of tracking the exact tile size: `cacheWidth`/`cacheHeight` are the
+    // ResizeImage cache key, so a value that changes every pixel of a window
+    // resize would evict and re-decode every visible thumbnail each frame —
+    // the cause of resize jank. `ceil` keeps the decoded image at least as
+    // large as the display size (no upscaling blur); equal buckets across a
+    // size range mean the provider stays `==` and isn't reloaded.
+    const bucket = 128;
+    final raw = thumbExtent * MediaQuery.devicePixelRatioOf(context);
+    final cacheDim = ((raw / bucket).ceil() * bucket).clamp(bucket, 2048).toInt();
 
     return Padding(
       padding: const EdgeInsets.all(4),
