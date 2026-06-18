@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/painting.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
 import 'package:window_manager/window_manager.dart';
 
 import 'app/app.dart';
@@ -26,6 +27,9 @@ Future<void> main() async {
   await windowManager.ensureInitialized();
   await windowManager.setMinimumSize(const Size(960, 640));
   await windowManager.setTitle('Selecto');
+
+  // Pre-warm the Liquid Glass shaders so chrome doesn't flash on first paint.
+  await LiquidGlassWidgets.initialize();
 
   Future<AppStrings> load(String code) async {
     final raw = await rootBundle.loadString('assets/i18n/$code.json');

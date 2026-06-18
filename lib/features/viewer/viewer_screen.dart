@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../app/glass.dart';
 import '../../l10n/l10n.dart';
 import '../gallery/gallery_controller.dart';
 import '../gallery/gallery_state.dart';
@@ -84,73 +85,99 @@ class _ViewerScreenState extends ConsumerState<ViewerScreen> {
         onTogglePick: ctrl.togglePickCurrent,
         onClose: close,
         onToggleInfo: _toggleInfo,
-        child: Column(
+        child: Stack(
+          fit: StackFit.expand,
           children: [
-            _TopBar(
-              isInBestShots: isInBestShotsPath(photo.path),
-              fileName: photo.path.split(RegExp(r'[\\/]')).last,
-              onClose: close,
-              closeTooltip: t.tr('viewerClose'),
-              positionLabel: t.tr('viewerPosition', {
-                'index': (state.selectedIndex + 1).toString(),
-                'total': state.visiblePhotos.length.toString(),
-              }),
-              infoVisible: _infoVisible,
-              infoTooltip: t.tr('info'),
-              onToggleInfo: _toggleInfo,
+            // The photo fills the screen; the glass chrome floats over it so
+            // each bar blurs/refracts the image behind it.
+            _ZoomableImage(
+              imagePath: photo.decodablePath,
+              // Right-click on the main image toggles pick on the currently
+              // displayed photo (no need to leave the viewer).
+              onSecondaryTap: () => ctrl.togglePickByPath(photo.path),
             ),
-            Expanded(
-              child: Row(
-                children: [
-                  Expanded(
-                    // No key: keep one _ZoomableImage alive across photo
-                    // changes so the Image's `gaplessPlayback` can bridge them
-                    // — the previous photo stays on screen until the next
-                    // finishes decoding, instead of flashing black on every
-                    // navigation. Zoom is reset in didUpdateWidget instead.
-                    child: _ZoomableImage(
-                      imagePath: photo.decodablePath,
-                      // Right-click on the main image toggles pick on the
-                      // currently displayed photo (no need to leave the viewer).
-                      onSecondaryTap: () => ctrl.togglePickByPath(photo.path),
-                    ),
+            // Top bar — frosted glass floating over the photo.
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
+                child: GlassSurface(
+                  radius: 22,
+                  child: _TopBar(
+                    isInBestShots: isInBestShotsPath(photo.path),
+                    fileName: photo.path.split(RegExp(r'[\\/]')).last,
+                    onClose: close,
+                    closeTooltip: t.tr('viewerClose'),
+                    positionLabel: t.tr('viewerPosition', {
+                      'index': (state.selectedIndex + 1).toString(),
+                      'total': state.visiblePhotos.length.toString(),
+                    }),
+                    infoVisible: _infoVisible,
+                    infoTooltip: t.tr('info'),
+                    onToggleInfo: _toggleInfo,
                   ),
-                  if (_infoVisible)
-                    InfoPanel(
-                      // Re-key per photo so the panel reloads its EXIF +
-                      // histogram for the newly shown image.
+                ),
+              ),
+            ),
+            // Info panel — frosted glass on the right, between the bars.
+            if (_infoVisible)
+              Positioned(
+                top: 0,
+                bottom: 0,
+                right: 0,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(0, 80, 8, 132),
+                  child: GlassSurface(
+                    radius: 22,
+                    // Re-key per photo so the panel reloads its EXIF +
+                    // histogram for the newly shown image.
+                    child: InfoPanel(
                       key: ValueKey(photo.decodablePath),
                       path: photo.decodablePath,
                       fileBytes: photo.byteSize,
                     ),
-                ],
+                  ),
+                ),
               ),
-            ),
-            SizedBox(
-              height: 110,
-              child: Filmstrip(
-                photos: state.visiblePhotos,
-                selectedIndex: state.selectedIndex,
-                picked: state.picked,
-                resultsByCacheKey: state.results,
-                onTap: (i) {
-                  final mods = ref.read(modifierKeysProvider);
-                  if (mods.shift) {
-                    ctrl.selectRangeTo(i);
-                  } else if (mods.toggleSelect) {
-                    ctrl.toggleSelectAt(i);
-                  } else {
-                    ctrl.selectSingle(i);
-                  }
-                },
-                onMoveToBestShots: (i) =>
-                    _relocate(context, ref, state.visiblePhotos[i].path,
-                        toBestShots: true),
-                onRemoveFromBestShots: (i) =>
-                    _relocate(context, ref, state.visiblePhotos[i].path,
-                        toBestShots: false),
-                moveToBestShotsLabel: t.tr('moveToBestShots'),
-                removeFromBestShotsLabel: t.tr('removeFromBestShots'),
+            // Filmstrip — frosted glass floating at the bottom.
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
+                child: GlassSurface(
+                  radius: 22,
+                  child: SizedBox(
+                    height: 104,
+                    child: Filmstrip(
+                      photos: state.visiblePhotos,
+                      selectedIndex: state.selectedIndex,
+                      picked: state.picked,
+                      resultsByCacheKey: state.results,
+                      onTap: (i) {
+                        final mods = ref.read(modifierKeysProvider);
+                        if (mods.shift) {
+                          ctrl.selectRangeTo(i);
+                        } else if (mods.toggleSelect) {
+                          ctrl.toggleSelectAt(i);
+                        } else {
+                          ctrl.selectSingle(i);
+                        }
+                      },
+                      onMoveToBestShots: (i) =>
+                          _relocate(context, ref, state.visiblePhotos[i].path,
+                              toBestShots: true),
+                      onRemoveFromBestShots: (i) =>
+                          _relocate(context, ref, state.visiblePhotos[i].path,
+                              toBestShots: false),
+                      moveToBestShotsLabel: t.tr('moveToBestShots'),
+                      removeFromBestShotsLabel: t.tr('removeFromBestShots'),
+                    ),
+                  ),
+                ),
               ),
             ),
           ],
@@ -432,9 +459,9 @@ class _TopBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      color: Colors.black,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+    // Transparent — the surrounding GlassSurface provides the glass fill.
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       child: Row(
         children: [
           IconButton(

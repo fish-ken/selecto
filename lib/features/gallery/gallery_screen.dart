@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:window_manager/window_manager.dart';
 
+import '../../app/glass.dart';
 import '../../l10n/l10n.dart';
 import '../settings/settings_dialog.dart';
 import 'gallery_controller.dart';
@@ -128,6 +129,8 @@ class _GalleryAppBar extends ConsumerWidget implements PreferredSizeWidget {
     final t = ref.watch(stringsProvider);
 
     return AppBar(
+      // Frosted glass bar behind the title/actions.
+      flexibleSpace: const GlassSurface(radius: 0, child: SizedBox.expand()),
       title: _FolderTitleButton(
         label: s.rootPath ?? t.tr('appTitle'),
         tooltip: t.tr('changeFolder'),
@@ -473,12 +476,15 @@ class _SubfolderList extends ConsumerWidget {
         .where((e) => e.isBestShots)
         .fold<int>(0, (sum, e) => sum + e.count);
 
-    return Container(
-      width: 220,
-      color: Theme.of(context).colorScheme.surfaceContainerLow,
-      child: ListView(
-        padding: const EdgeInsets.symmetric(vertical: 4),
-        children: [
+    return Padding(
+      padding: const EdgeInsets.all(8),
+      child: GlassSurface(
+        radius: 20,
+        child: SizedBox(
+          width: 204,
+          child: ListView(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            children: [
           _SubfolderItem(
             icon: Icons.photo_library_outlined,
             label: t.tr('allPhotos'),
@@ -516,7 +522,9 @@ class _SubfolderList extends ConsumerWidget {
               selected: !bestShotsOnly && filter == sf.dir,
               onTap: sf.count > 0 ? () => ctrl.setSubfolderFilter(sf.dir) : null,
             ),
-        ],
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -680,16 +688,19 @@ class _StatusBar extends ConsumerWidget {
       if (s.analyzing) Text(t.tr('inferring')),
     ];
 
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-      color: Theme.of(context).colorScheme.surfaceContainerHighest,
-      child: Row(
-        children: [
-          for (var i = 0; i < items.length; i++) ...[
-            if (i > 0) const _StatusSeparator(),
-            items[i],
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
+      child: GlassSurface(
+        radius: 16,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        child: Row(
+          children: [
+            for (var i = 0; i < items.length; i++) ...[
+              if (i > 0) const _StatusSeparator(),
+              items[i],
+            ],
           ],
-        ],
+        ),
       ),
     );
   }

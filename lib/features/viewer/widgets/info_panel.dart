@@ -24,15 +24,13 @@ class _InfoPanelState extends ConsumerState<InfoPanel> {
   late final Future<PhotoMetadata> _future =
       loadPhotoMetadata(widget.path, fileBytes: widget.fileBytes);
 
-  static const _bg = Color(0xFF161616);
-
   @override
   Widget build(BuildContext context) {
     final t = ref.watch(stringsProvider);
 
-    return Container(
+    // Transparent — the enclosing GlassSurface provides the frosted fill.
+    return SizedBox(
       width: 300,
-      color: _bg,
       child: FutureBuilder<PhotoMetadata>(
         future: _future,
         builder: (context, snap) {

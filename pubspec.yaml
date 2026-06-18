@@ -64,6 +64,11 @@ dependencies:
   # System / desktop integration
   window_manager: ^0.4.2
 
+  # Liquid Glass UI kit (shader-based frosted glass; auto-detects
+  # Impeller/Skia, works on Windows/macOS/Linux). Used for the app chrome —
+  # never per grid tile, which would be far too GPU-heavy.
+  liquid_glass_widgets: ^0.16.3
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

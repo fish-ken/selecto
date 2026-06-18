@@ -99,7 +99,8 @@ class _FilmstripState extends State<Filmstrip> {
     return Listener(
       onPointerSignal: _handlePointerSignal,
       child: Container(
-        color: Colors.black,
+        // Transparent — sits inside a GlassSurface that provides the fill.
+        color: Colors.transparent,
         padding: const EdgeInsets.symmetric(vertical: 6),
         child: ListView.builder(
           controller: _scrollCtrl,
