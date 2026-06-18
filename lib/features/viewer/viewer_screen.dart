@@ -11,6 +11,7 @@ import '../gallery/gallery_controller.dart';
 import '../gallery/gallery_state.dart';
 import '../gallery/modifier_keys.dart';
 import 'widgets/filmstrip.dart';
+import 'widgets/info_panel.dart';
 import 'widgets/viewer_shortcuts.dart';
 
 /// Lightroom-style detail / loupe view.
@@ -37,6 +38,12 @@ class _ViewerScreenState extends ConsumerState<ViewerScreen> {
   // Index whose neighbors we've already queued for preview precache, so each
   // is scheduled once rather than on every rebuild.
   int? _precachedAround;
+
+  // Whether the EXIF / histogram info panel is open (toggled by the top-bar
+  // button or the `i` key).
+  bool _infoVisible = false;
+
+  void _toggleInfo() => setState(() => _infoVisible = !_infoVisible);
 
   @override
   Widget build(BuildContext context) {
@@ -76,6 +83,7 @@ class _ViewerScreenState extends ConsumerState<ViewerScreen> {
         onAddSelection: ctrl.addCursorSelection,
         onTogglePick: ctrl.togglePickCurrent,
         onClose: close,
+        onToggleInfo: _toggleInfo,
         child: Column(
           children: [
             _TopBar(
@@ -87,18 +95,35 @@ class _ViewerScreenState extends ConsumerState<ViewerScreen> {
                 'index': (state.selectedIndex + 1).toString(),
                 'total': state.visiblePhotos.length.toString(),
               }),
+              infoVisible: _infoVisible,
+              infoTooltip: t.tr('info'),
+              onToggleInfo: _toggleInfo,
             ),
             Expanded(
-              // No key: keep one _ZoomableImage alive across photo changes so
-              // the Image's `gaplessPlayback` can bridge them — the previous
-              // photo stays on screen until the next finishes decoding,
-              // instead of flashing black on every navigation. Zoom is reset
-              // imperatively in _ZoomableImage.didUpdateWidget instead.
-              child: _ZoomableImage(
-                imagePath: photo.decodablePath,
-                // Right-click on the main image toggles pick on the
-                // currently displayed photo (no need to leave the viewer).
-                onSecondaryTap: () => ctrl.togglePickByPath(photo.path),
+              child: Row(
+                children: [
+                  Expanded(
+                    // No key: keep one _ZoomableImage alive across photo
+                    // changes so the Image's `gaplessPlayback` can bridge them
+                    // — the previous photo stays on screen until the next
+                    // finishes decoding, instead of flashing black on every
+                    // navigation. Zoom is reset in didUpdateWidget instead.
+                    child: _ZoomableImage(
+                      imagePath: photo.decodablePath,
+                      // Right-click on the main image toggles pick on the
+                      // currently displayed photo (no need to leave the viewer).
+                      onSecondaryTap: () => ctrl.togglePickByPath(photo.path),
+                    ),
+                  ),
+                  if (_infoVisible)
+                    InfoPanel(
+                      // Re-key per photo so the panel reloads its EXIF +
+                      // histogram for the newly shown image.
+                      key: ValueKey(photo.decodablePath),
+                      path: photo.decodablePath,
+                      fileBytes: photo.byteSize,
+                    ),
+                ],
               ),
             ),
             SizedBox(
@@ -389,6 +414,9 @@ class _TopBar extends StatelessWidget {
     required this.onClose,
     required this.closeTooltip,
     required this.positionLabel,
+    required this.infoVisible,
+    required this.infoTooltip,
+    required this.onToggleInfo,
   });
 
   /// Whether the current photo lives in a `BestShots` folder — shown with
@@ -398,6 +426,9 @@ class _TopBar extends StatelessWidget {
   final VoidCallback onClose;
   final String closeTooltip;
   final String positionLabel;
+  final bool infoVisible;
+  final String infoTooltip;
+  final VoidCallback onToggleInfo;
 
   @override
   Widget build(BuildContext context) {
@@ -442,6 +473,17 @@ class _TopBar extends StatelessWidget {
           Text(
             positionLabel,
             style: const TextStyle(color: Colors.white54, fontSize: 12),
+          ),
+          const SizedBox(width: 4),
+          IconButton(
+            tooltip: infoTooltip,
+            icon: Icon(
+              Icons.info_outline,
+              color: infoVisible
+                  ? Theme.of(context).colorScheme.primary
+                  : Colors.white,
+            ),
+            onPressed: onToggleInfo,
           ),
         ],
       ),

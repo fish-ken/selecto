@@ -31,6 +31,11 @@ class CloseViewerIntent extends Intent {
   const CloseViewerIntent();
 }
 
+/// `i` — toggle the EXIF / histogram info panel.
+class ToggleInfoIntent extends Intent {
+  const ToggleInfoIntent();
+}
+
 class ViewerShortcuts extends StatelessWidget {
   const ViewerShortcuts({
     super.key,
@@ -39,6 +44,7 @@ class ViewerShortcuts extends StatelessWidget {
     required this.onAddSelection,
     required this.onTogglePick,
     required this.onClose,
+    required this.onToggleInfo,
     required this.child,
   });
 
@@ -47,6 +53,7 @@ class ViewerShortcuts extends StatelessWidget {
   final void Function(int delta) onAddSelection;
   final VoidCallback onTogglePick;
   final VoidCallback onClose;
+  final VoidCallback onToggleInfo;
   final Widget child;
 
   @override
@@ -70,6 +77,7 @@ class ViewerShortcuts extends StatelessWidget {
         SingleActivator(LogicalKeyboardKey.arrowRight, meta: true):
             AddSelectionIntent(1),
         SingleActivator(LogicalKeyboardKey.space): TogglePickIntent(),
+        SingleActivator(LogicalKeyboardKey.keyI): ToggleInfoIntent(),
         SingleActivator(LogicalKeyboardKey.escape): CloseViewerIntent(),
         SingleActivator(LogicalKeyboardKey.enter): CloseViewerIntent(),
       },
@@ -102,6 +110,12 @@ class ViewerShortcuts extends StatelessWidget {
           CloseViewerIntent: CallbackAction<CloseViewerIntent>(
             onInvoke: (_) {
               onClose();
+              return null;
+            },
+          ),
+          ToggleInfoIntent: CallbackAction<ToggleInfoIntent>(
+            onInvoke: (_) {
+              onToggleInfo();
               return null;
             },
           ),

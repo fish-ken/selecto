@@ -43,6 +43,10 @@ dependencies:
   # Image decoding / processing (off-thread via isolates)
   image: ^4.2.0
 
+  # EXIF metadata parsing (pure Dart, header-only — no full decode) for the
+  # viewer's info panel.
+  exif: ^3.3.0
+
   # ONNX Runtime via FFI. Using `onnxruntime_v2` (a maintained fork of the
   # original gtbluesky `onnxruntime` package, which has been frozen at
   # 1.4.1 for 2 years and only supports ONNX IR ≤ 9). v2 follows ORT's
