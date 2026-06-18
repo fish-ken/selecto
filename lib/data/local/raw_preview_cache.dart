@@ -1,11 +1,14 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:isolate';
 
 import 'package:crypto/crypto.dart';
 import 'package:logging/logging.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
+
+import 'embedded_jpeg_extractor.dart';
 
 /// Extracts the embedded JPEG preview from camera RAW files and caches
 /// the bytes under the app support directory, so the rest of the
@@ -14,19 +17,20 @@ import 'package:path_provider/path_provider.dart';
 ///
 /// Strategy:
 ///   1. Check the cache — `<support>/raw_previews/<md5(cacheKey)>.jpg`.
-///   2. On miss, run `exiftool -b -PreviewImage` (then `-JpgFromRaw`,
-///      then `-OtherImage`) until one returns non-empty bytes.
+///   2. On miss, scan the RAW for its largest embedded JPEG — pure Dart,
+///      zero external dependencies (see embedded_jpeg_extractor.dart).
 ///   3. Write the bytes to the cache file and return its path.
 ///
 /// All the work to debayer the RAW sensor data is intentionally skipped
 /// — the embedded preview the camera already created is good enough for
 /// culling and ~100× faster than a full RAW decode.
 class RawPreviewCache {
-  RawPreviewCache({this.maxConcurrent = 4});
+  RawPreviewCache({this.maxConcurrent = 4, Directory? cacheDir})
+      : _cacheDir = cacheDir;
 
-  /// Cap on simultaneous `exiftool` invocations. Each spawn is ~30ms of
-  /// overhead, so we run several in parallel to amortize the fork cost
-  /// without thrashing disk.
+  /// Cap on simultaneous extractions. Each one reads the whole RAW into a
+  /// worker isolate, so this bounds transient memory (~maxConcurrent ×
+  /// file size) and keeps the disk from thrashing.
   final int maxConcurrent;
 
   static final _log = Logger('RawPreviewCache');
@@ -71,30 +75,7 @@ class RawPreviewCache {
     }
   }
 
-  // ---- exiftool availability ----
-  bool? _hasExiftool;
-
-  Future<bool> get hasExiftool async {
-    if (_hasExiftool != null) return _hasExiftool!;
-    try {
-      final r = await Process.run('exiftool', ['-ver']);
-      _hasExiftool = r.exitCode == 0;
-      if (_hasExiftool!) {
-        _log.info('exiftool detected: ${(r.stdout as String).trim()}');
-      } else {
-        _log.warning('exiftool returned exit ${r.exitCode}');
-      }
-    } catch (e) {
-      _hasExiftool = false;
-      _log.warning(
-        'exiftool not found in PATH — RAW files will be skipped. '
-        'Install with: winget install -e --id OliverBetz.ExifTool  (Windows)',
-      );
-    }
-    return _hasExiftool!;
-  }
-
-  // ---- cache directory (lazy) ----
+  // ---- cache directory (lazy; injectable for tests) ----
   Directory? _cacheDir;
 
   Future<Directory> _ensureCacheDir() async {
@@ -109,8 +90,8 @@ class RawPreviewCache {
   }
 
   /// Returns the path of a JPEG that visually represents [rawFile], or
-  /// null when extraction failed (exiftool missing, no embedded preview,
-  /// corrupt RAW, etc.). Cached across runs.
+  /// null when extraction failed (no embedded preview, corrupt RAW,
+  /// etc.). Cached across runs.
   ///
   /// [mtime] and [size] are used in the cache key so the cache
   /// invalidates if the user re-shoots / overwrites the RAW.
@@ -119,8 +100,6 @@ class RawPreviewCache {
     required DateTime mtime,
     required int size,
   }) async {
-    if (!await hasExiftool) return null;
-
     final dir = await _ensureCacheDir();
     final keyInput = '${rawFile.path}::${mtime.millisecondsSinceEpoch}::$size';
     final hash = md5.convert(utf8.encode(keyInput)).toString();
@@ -131,19 +110,12 @@ class RawPreviewCache {
 
     await _acquire();
     try {
-      // Different vendors store the preview under different tags.
-      // PreviewImage covers Sony/Nikon/Canon/etc; JpgFromRaw is Canon;
-      // OtherImage shows up on some Fuji bodies.
-      for (final tag in const ['-PreviewImage', '-JpgFromRaw', '-OtherImage']) {
-        final result = await Process.run(
-          'exiftool',
-          ['-b', tag, rawFile.path],
-          stdoutEncoding: null, // get raw bytes, not decoded text
-        );
-        if (result.exitCode != 0) continue;
-        final bytes = result.stdout as List<int>;
-        if (bytes.isEmpty) continue;
-        await cacheFile.writeAsBytes(bytes, flush: true);
+      // Runs in a throwaway isolate — the scan reads the whole file and
+      // would otherwise stall the UI isolate.
+      final rawPath = rawFile.path;
+      if (await Isolate.run(
+        () => extractEmbeddedJpegToFile(rawPath, cachePath),
+      )) {
         return cachePath;
       }
       _log.warning('no embedded preview found in ${rawFile.path}');

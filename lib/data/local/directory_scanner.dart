@@ -15,9 +15,9 @@ import 'raw_preview_cache.dart';
 /// whole scan.
 ///
 /// RAW files (.NEF / .CR2 / .ARW / …) are routed through
-/// [RawPreviewCache] which extracts their embedded JPEG preview via
-/// `exiftool`. If extraction fails (no exiftool installed, no embedded
-/// preview, etc.), the RAW is skipped silently — see the log file.
+/// [RawPreviewCache] which extracts their embedded JPEG preview with a
+/// built-in pure-Dart scanner. Only when that fails (no embedded
+/// preview, corrupt file) is the RAW skipped silently — see the log file.
 class DirectoryScanner {
   DirectoryScanner({RawPreviewCache? rawCache})
       : _rawCache = rawCache ?? RawPreviewCache();
