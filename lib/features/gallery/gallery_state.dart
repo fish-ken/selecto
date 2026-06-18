@@ -41,6 +41,7 @@ class GalleryState {
     this.visiblePhotos = const [],
     this.subfolders = const [],
     this.subfolderFilter,
+    this.bestShotsOnly = false,
     this.selectedIndex = 0,
     this.selectionAnchor = 0,
     this.picked = const {},
@@ -72,6 +73,10 @@ class GalleryState {
   /// photo's path, so the top-left folder label and BestShots moves
   /// (which act on `dirname(photo.path)`) are unaffected by it.
   final String? subfolderFilter;
+
+  /// When true, the view shows every photo inside any `BestShots` folder
+  /// across all subfolders. Mutually exclusive with [subfolderFilter].
+  final bool bestShotsOnly;
 
   /// Index of the cursor photo, into [visiblePhotos].
   final int selectedIndex;
@@ -112,18 +117,21 @@ class GalleryState {
     bool clearError = false,
     String? subfolderFilter,
     bool clearSubfolderFilter = false,
+    bool? bestShotsOnly,
   }) {
     final nextPhotos = photos ?? this.photos;
     final nextRoot = rootPath ?? this.rootPath;
     final nextFilter =
         clearSubfolderFilter ? null : (subfolderFilter ?? this.subfolderFilter);
+    final nextBest = bestShotsOnly ?? this.bestShotsOnly;
 
     // Only recompute the derived lists when their inputs actually change —
     // a plain cursor/pick update shouldn't refilter thousands of photos.
     final photosChanged = photos != null;
-    final filterChanged = nextFilter != this.subfolderFilter;
-    final nextVisible = (photosChanged || filterChanged)
-        ? _filterPhotos(nextPhotos, nextFilter)
+    final modeChanged =
+        nextFilter != this.subfolderFilter || nextBest != this.bestShotsOnly;
+    final nextVisible = (photosChanged || modeChanged)
+        ? _computeVisible(nextPhotos, nextFilter, nextBest)
         : visiblePhotos;
     final nextSubfolders = photosChanged
         ? _computeSubfolders(nextPhotos, nextRoot)
@@ -135,6 +143,7 @@ class GalleryState {
       visiblePhotos: nextVisible,
       subfolders: nextSubfolders,
       subfolderFilter: nextFilter,
+      bestShotsOnly: nextBest,
       selectedIndex: selectedIndex ?? this.selectedIndex,
       selectionAnchor: selectionAnchor ?? this.selectionAnchor,
       picked: picked ?? this.picked,
@@ -146,9 +155,20 @@ class GalleryState {
     );
   }
 
-  /// Photos whose immediate directory is [filter]. Returns [photos]
-  /// unchanged (same reference) when there's no filter.
-  static List<Photo> _filterPhotos(List<Photo> photos, String? filter) {
+  /// The visible subset for the current view mode. [bestOnly] (every photo
+  /// in any BestShots folder) wins over [filter] (one exact directory);
+  /// with neither, returns [photos] unchanged (same reference).
+  static List<Photo> _computeVisible(
+    List<Photo> photos,
+    String? filter,
+    bool bestOnly,
+  ) {
+    if (bestOnly) {
+      return List.unmodifiable([
+        for (final ph in photos)
+          if (isInBestShotsPath(ph.path)) ph,
+      ]);
+    }
     if (filter == null) return photos;
     return List.unmodifiable([
       for (final ph in photos)
@@ -218,3 +238,7 @@ class GalleryState {
     ]);
   }
 }
+
+/// True if [path]'s immediate parent directory is a `BestShots` folder.
+bool isInBestShotsPath(String path) =>
+    p.basename(p.dirname(path)).toLowerCase() == 'bestshots';

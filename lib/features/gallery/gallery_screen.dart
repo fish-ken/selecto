@@ -461,10 +461,17 @@ class _SubfolderList extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final filter =
         ref.watch(galleryControllerProvider.select((s) => s.subfolderFilter));
+    final bestShotsOnly =
+        ref.watch(galleryControllerProvider.select((s) => s.bestShotsOnly));
     final totalCount =
         ref.watch(galleryControllerProvider.select((s) => s.photos.length));
     final ctrl = ref.read(galleryControllerProvider.notifier);
     final t = ref.watch(stringsProvider);
+
+    final hasBestShots = subfolders.any((e) => e.isBestShots && e.count > 0);
+    final bestShotsCount = subfolders
+        .where((e) => e.isBestShots)
+        .fold<int>(0, (sum, e) => sum + e.count);
 
     return Container(
       width: 220,
@@ -477,9 +484,21 @@ class _SubfolderList extends ConsumerWidget {
             label: t.tr('allPhotos'),
             count: totalCount,
             depth: 0,
-            selected: filter == null,
+            selected: filter == null && !bestShotsOnly,
             onTap: () => ctrl.setSubfolderFilter(null),
           ),
+          if (hasBestShots)
+            _SubfolderItem(
+              // Aggregate of every BestShots folder → filled white star
+              // (the individual folders use a hollow one).
+              icon: Icons.star_rounded,
+              iconColor: Colors.white,
+              label: t.tr('allBestShots'),
+              count: bestShotsCount,
+              depth: 0,
+              selected: bestShotsOnly,
+              onTap: ctrl.setBestShotsFilter,
+            ),
           const Divider(height: 1),
           for (final sf in subfolders)
             _SubfolderItem(
@@ -494,7 +513,7 @@ class _SubfolderList extends ConsumerWidget {
               // shown only to make the nesting clear.
               count: sf.count > 0 ? sf.count : null,
               depth: sf.depth,
-              selected: filter == sf.dir,
+              selected: !bestShotsOnly && filter == sf.dir,
               onTap: sf.count > 0 ? () => ctrl.setSubfolderFilter(sf.dir) : null,
             ),
         ],

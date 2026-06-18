@@ -51,6 +51,7 @@ class GalleryController extends _$GalleryController {
       clearError: true,
       // A new root invalidates any subfolder view from the previous one.
       clearSubfolderFilter: true,
+      bestShotsOnly: false,
     );
 
     final scan = ref.read(scanDirectoryProvider);
@@ -250,6 +251,21 @@ class GalleryController extends _$GalleryController {
     state = state.copyWith(
       subfolderFilter: dir,
       clearSubfolderFilter: dir == null,
+      bestShotsOnly: false,
+      selectedIndex: -1,
+      selectionAnchor: 0,
+      picked: const {},
+    );
+  }
+
+  /// Show every photo inside any `BestShots` folder, across all subfolders.
+  /// Like [setSubfolderFilter], a pure view change that clears the selection
+  /// and parks the cursor; the top-left folder label and on-disk paths are
+  /// untouched.
+  void setBestShotsFilter() {
+    state = state.copyWith(
+      bestShotsOnly: true,
+      clearSubfolderFilter: true,
       selectedIndex: -1,
       selectionAnchor: 0,
       picked: const {},
@@ -374,7 +390,3 @@ class GalleryController extends _$GalleryController {
         previewPath: photo.previewPath,
       );
 }
-
-/// True if [path]'s immediate parent directory is a `BestShots` folder.
-bool isInBestShotsPath(String path) =>
-    p.basename(p.dirname(path)).toLowerCase() == 'bestshots';

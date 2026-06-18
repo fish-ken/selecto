@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 
 import '../../../domain/entities/analysis_result.dart';
 import '../../../domain/entities/photo.dart';
-import '../../gallery/gallery_controller.dart';
+import '../../gallery/gallery_state.dart';
 
 /// Horizontal thumbnail strip shown along the bottom of the viewer.
 /// Auto-scrolls to keep the current photo centred.
