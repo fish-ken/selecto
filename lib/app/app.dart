@@ -22,7 +22,7 @@ class SelectoApp extends ConsumerWidget {
       debugShowCheckedModeBanner: false,
       scrollBehavior: const _AppScrollBehavior(),
       locale: locale,
-      supportedLocales: const [Locale('en'), Locale('ko')],
+      supportedLocales: [for (final l in AppLocale.values) l.locale],
       // Supplies MaterialLocalizations/CupertinoLocalizations for every
       // supported locale. Without these, Material widgets crash for `ko`.
       localizationsDelegates: const [

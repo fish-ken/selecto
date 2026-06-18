@@ -560,15 +560,27 @@ class _SubfolderItem extends StatelessWidget {
             ? null
             : scheme.onSurfaceVariant;
 
+    // Nested rows are inset by one level less than their depth and prefixed
+    // with a 'ㄴ'-style connector (↳) so the parent → child relationship
+    // reads at a glance; top-level rows have no connector.
+    final indent = depth == 0 ? 12.0 : 12.0 + (depth - 1) * 16.0;
     final content = Padding(
       padding: EdgeInsets.only(
-        left: 12 + depth * 16.0,
+        left: indent,
         right: 12,
         top: 10,
         bottom: 10,
       ),
       child: Row(
         children: [
+          if (depth > 0) ...[
+            Icon(
+              Icons.subdirectory_arrow_right,
+              size: 16,
+              color: scheme.onSurfaceVariant.withValues(alpha: 0.6),
+            ),
+            const SizedBox(width: 4),
+          ],
           Icon(
             icon,
             size: 18,

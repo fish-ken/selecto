@@ -7,11 +7,21 @@ import 'app_strings.dart';
 /// Supported UI languages.
 enum AppLocale {
   en('English', Locale('en')),
-  ko('한국어', Locale('ko'));
+  ko('한국어', Locale('ko')),
+  zh('简体中文', Locale('zh')),
+  ja('日本語', Locale('ja'));
 
   const AppLocale(this.label, this.locale);
   final String label;
   final Locale locale;
+
+  /// The [AppLocale] for an OS language code, or [en] when unsupported.
+  static AppLocale forLanguageCode(String code) {
+    for (final l in values) {
+      if (l.locale.languageCode == code) return l;
+    }
+    return en;
+  }
 }
 
 /// Loaded string bundles, seeded in `main()` via override.
@@ -24,7 +34,7 @@ class LocaleController extends Notifier<AppLocale> {
   @override
   AppLocale build() {
     final code = PlatformDispatcher.instance.locale.languageCode;
-    return code == 'ko' ? AppLocale.ko : AppLocale.en;
+    return AppLocale.forLanguageCode(code);
   }
 
   void set(AppLocale locale) => state = locale;

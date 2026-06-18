@@ -33,8 +33,7 @@ Future<void> main() async {
   }
 
   final bundle = <AppLocale, AppStrings>{
-    AppLocale.en: await load('en'),
-    AppLocale.ko: await load('ko'),
+    for (final l in AppLocale.values) l: await load(l.locale.languageCode),
   };
 
   runApp(
