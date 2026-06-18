@@ -128,7 +128,17 @@ class _GalleryAppBar extends ConsumerWidget implements PreferredSizeWidget {
     final t = ref.watch(stringsProvider);
 
     return AppBar(
-      title: Text(s.rootPath ?? t.tr('appTitle')),
+      title: _FolderTitleButton(
+        label: s.rootPath ?? t.tr('appTitle'),
+        tooltip: t.tr('changeFolder'),
+        onTap: () async {
+          final path = await FilePicker.platform.getDirectoryPath();
+          if (path == null) return;
+          await ref
+              .read(galleryControllerProvider.notifier)
+              .openDirectory(path);
+        },
+      ),
       actions: [
         const ModelPicker(),
         const SizedBox(width: 8),
@@ -193,7 +203,15 @@ class _GalleryBody extends ConsumerWidget {
       return _EmptyState(scanning: scanning, onPick: onPickDirectory);
     }
 
-    return _PhotoGrid(scrollCtrl: scrollCtrl);
+    // Left: subfolder navigator (hides itself when there's nothing to
+    // navigate). Right: the grid of the currently-visible photos.
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const _SubfolderPanel(),
+        Expanded(child: _PhotoGrid(scrollCtrl: scrollCtrl)),
+      ],
+    );
   }
 }
 
@@ -208,40 +226,52 @@ class _PhotoGrid extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final photosLength = ref.watch(
-      galleryControllerProvider.select((s) => s.photos.length),
+      galleryControllerProvider.select((s) => s.visiblePhotos.length),
     );
     final ctrl = ref.read(galleryControllerProvider.notifier);
 
-    final width = MediaQuery.sizeOf(context).width - 32;
-    final crossAxisCount = (width / 200).floor().clamp(2, 12).toInt();
-    final tileExtent = width / crossAxisCount;
+    // Size the grid from the actual content width — the side panel takes a
+    // slice of the window, so MediaQuery's full width would over-count.
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth - 16; // GridView's 8-px padding × 2
+        final crossAxisCount = (width / 200).floor().clamp(2, 12).toInt();
+        final tileExtent = width / crossAxisCount;
 
-    return GalleryShortcuts(
-      crossAxisCount: crossAxisCount,
-      onMove: ctrl.moveCursor,
-      onExtendSelection: ctrl.extendSelection,
-      onAddSelection: ctrl.addCursorSelection,
-      onTogglePick: ctrl.togglePickCurrent,
-      onPickAll: ctrl.pickAll,
-      onUnpickAll: ctrl.unpickAll,
-      onOpenViewer: () => context.push('/viewer'),
-      child: GridView.builder(
-        controller: scrollCtrl,
-        padding: const EdgeInsets.all(8),
-        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        return GalleryShortcuts(
           crossAxisCount: crossAxisCount,
-          childAspectRatio: 1,
-        ),
-        itemCount: photosLength,
-        addAutomaticKeepAlives: false,
-        addRepaintBoundaries: true,
-        itemBuilder: (context, i) {
-          // Tile is its own Consumer — it watches only its own slice of
-          // state (this photo's cursor/picked/analysis bits). State
-          // changes that don't affect this index produce no rebuild.
-          return _PhotoTileConnected(index: i, thumbExtent: tileExtent);
-        },
-      ),
+          onMove: ctrl.moveCursor,
+          onExtendSelection: ctrl.extendSelection,
+          onAddSelection: ctrl.addCursorSelection,
+          onTogglePick: ctrl.togglePickCurrent,
+          onPickAll: ctrl.pickAll,
+          onUnpickAll: ctrl.unpickAll,
+          onOpenViewer: () {
+            // Keyboard-opening the viewer right after a folder switch: make
+            // sure a real photo is focused first (the cursor may be parked
+            // at -1 to keep the grid from showing a pre-selected tile).
+            ctrl.ensureCursor();
+            context.push('/viewer');
+          },
+          child: GridView.builder(
+            controller: scrollCtrl,
+            padding: const EdgeInsets.all(8),
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: crossAxisCount,
+              childAspectRatio: 1,
+            ),
+            itemCount: photosLength,
+            addAutomaticKeepAlives: false,
+            addRepaintBoundaries: true,
+            itemBuilder: (context, i) {
+              // Tile is its own Consumer — it watches only its own slice of
+              // state (this photo's cursor/picked/analysis bits). State
+              // changes that don't affect this index produce no rebuild.
+              return _PhotoTileConnected(index: i, thumbExtent: tileExtent);
+            },
+          ),
+        );
+      },
     );
   }
 }
@@ -264,7 +294,7 @@ class _PhotoTileConnected extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final photo = ref.watch(
       galleryControllerProvider.select(
-        (s) => index < s.photos.length ? s.photos[index] : null,
+        (s) => index < s.visiblePhotos.length ? s.visiblePhotos[index] : null,
       ),
     );
     if (photo == null) return const SizedBox.shrink();
@@ -343,6 +373,174 @@ class _PhotoTileConnected extends ConsumerWidget {
               : t.tr('movedOutOfBestShots', {'count': moved.toString()}),
         ),
         duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+}
+
+/// Clickable AppBar title showing the current root folder. Tapping it opens
+/// the folder picker so the user can switch to a different folder.
+class _FolderTitleButton extends StatelessWidget {
+  const _FolderTitleButton({
+    required this.label,
+    required this.tooltip,
+    required this.onTap,
+  });
+
+  final String label;
+  final String tooltip;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: tooltip,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(6),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Flexible(
+                child: Text(label, overflow: TextOverflow.ellipsis),
+              ),
+              const SizedBox(width: 4),
+              const Icon(Icons.arrow_drop_down, size: 22),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Left-hand navigator listing the directories that contain photos. Picking
+/// one filters the grid/viewer to just that directory (a view-only filter —
+/// the top-left folder label and BestShots moves are unaffected). Hides
+/// itself when there's only a single directory to show.
+///
+/// Wrapped in [AnimatedSize] so the panel glides in instead of popping the
+/// instant a scan turns up a second directory. AnimatedSize doesn't animate
+/// its first build, so a folder whose subfolders are already known shows the
+/// panel in place; one discovered a few batches into the scan slides in.
+class _SubfolderPanel extends ConsumerWidget {
+  const _SubfolderPanel();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final subfolders =
+        ref.watch(galleryControllerProvider.select((s) => s.subfolders));
+    // Nothing to navigate (everything lives in one directory) → no panel.
+    final visible = subfolders.length > 1;
+
+    return AnimatedSize(
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
+      alignment: Alignment.centerLeft,
+      child: visible
+          ? _SubfolderList(subfolders: subfolders)
+          : const SizedBox.shrink(),
+    );
+  }
+}
+
+/// The panel's actual content — built only when there are subfolders to show,
+/// so its `filter`/`totalCount` watches don't run while it's collapsed.
+class _SubfolderList extends ConsumerWidget {
+  const _SubfolderList({required this.subfolders});
+
+  final List<SubfolderEntry> subfolders;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final filter =
+        ref.watch(galleryControllerProvider.select((s) => s.subfolderFilter));
+    final totalCount =
+        ref.watch(galleryControllerProvider.select((s) => s.photos.length));
+    final ctrl = ref.read(galleryControllerProvider.notifier);
+    final t = ref.watch(stringsProvider);
+
+    return Container(
+      width: 220,
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surfaceContainerLow,
+        border: Border(right: BorderSide(color: Theme.of(context).dividerColor)),
+      ),
+      child: ListView(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        children: [
+          _SubfolderItem(
+            icon: Icons.photo_library_outlined,
+            label: t.tr('allPhotos'),
+            count: totalCount,
+            selected: filter == null,
+            onTap: () => ctrl.setSubfolderFilter(null),
+          ),
+          const Divider(height: 1),
+          for (final sf in subfolders)
+            _SubfolderItem(
+              icon: Icons.folder_outlined,
+              label: sf.label,
+              count: sf.count,
+              selected: filter == sf.dir,
+              onTap: () => ctrl.setSubfolderFilter(sf.dir),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SubfolderItem extends StatelessWidget {
+  const _SubfolderItem({
+    required this.icon,
+    required this.label,
+    required this.count,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final int count;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Material(
+      color: selected
+          ? scheme.primary.withValues(alpha: 0.14)
+          : Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          child: Row(
+            children: [
+              Icon(icon, size: 18, color: selected ? scheme.primary : null),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  label,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
+                    color: selected ? scheme.primary : null,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 6),
+              Text(
+                '$count',
+                style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

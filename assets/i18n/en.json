@@ -1,6 +1,8 @@
 {
   "appTitle": "Selecto",
   "openFolder": "Open folder",
+  "changeFolder": "Change folder (click)",
+  "allPhotos": "All",
   "analyze": "Analyze",
   "selectBest": "Select best shots (top 20%)",
   "settings": "Settings",

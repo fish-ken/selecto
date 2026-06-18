@@ -49,6 +49,8 @@ class GalleryController extends _$GalleryController {
       results: const {},
       scanning: true,
       clearError: true,
+      // A new root invalidates any subfolder view from the previous one.
+      clearSubfolderFilter: true,
     );
 
     final scan = ref.read(scanDirectoryProvider);
@@ -122,8 +124,9 @@ class GalleryController extends _$GalleryController {
   }
 
   void moveCursor(int delta) {
-    if (state.photos.isEmpty) return;
-    final next = (state.selectedIndex + delta).clamp(0, state.photos.length - 1);
+    if (state.visiblePhotos.isEmpty) return;
+    final next =
+        (state.selectedIndex + delta).clamp(0, state.visiblePhotos.length - 1);
     if (next == state.selectedIndex) return;
     // Arrow navigation carries the single selection with the cursor: the
     // photo moved onto becomes the sole selected item and the previous one
@@ -132,32 +135,32 @@ class GalleryController extends _$GalleryController {
     state = state.copyWith(
       selectedIndex: next,
       selectionAnchor: next,
-      picked: {state.photos[next].path},
+      picked: {state.visiblePhotos[next].path},
     );
   }
 
   void setCursor(int index) {
-    if (state.photos.isEmpty) return;
-    final next = index.clamp(0, state.photos.length - 1);
+    if (state.visiblePhotos.isEmpty) return;
+    final next = index.clamp(0, state.visiblePhotos.length - 1);
     state = state.copyWith(selectedIndex: next);
   }
 
   /// Plain click — make [index] the sole selection and the cursor/anchor.
   void selectSingle(int index) {
-    if (state.photos.isEmpty) return;
-    final i = index.clamp(0, state.photos.length - 1);
+    if (state.visiblePhotos.isEmpty) return;
+    final i = index.clamp(0, state.visiblePhotos.length - 1);
     state = state.copyWith(
       selectedIndex: i,
       selectionAnchor: i,
-      picked: {state.photos[i].path},
+      picked: {state.visiblePhotos[i].path},
     );
   }
 
   /// Ctrl/Cmd+click — toggle [index] in the selection; it becomes the anchor.
   void toggleSelectAt(int index) {
-    if (state.photos.isEmpty) return;
-    final i = index.clamp(0, state.photos.length - 1);
-    final path = state.photos[i].path;
+    if (state.visiblePhotos.isEmpty) return;
+    final i = index.clamp(0, state.visiblePhotos.length - 1);
+    final path = state.visiblePhotos[i].path;
     final picked = {...state.picked};
     if (!picked.add(path)) picked.remove(path);
     state = state.copyWith(
@@ -171,13 +174,13 @@ class GalleryController extends _$GalleryController {
   /// (replacing the selection). The anchor stays fixed so repeated
   /// shift-clicks re-range from the same start.
   void selectRangeTo(int index) {
-    if (state.photos.isEmpty) return;
-    final i = index.clamp(0, state.photos.length - 1);
-    final anchor = state.selectionAnchor.clamp(0, state.photos.length - 1);
+    if (state.visiblePhotos.isEmpty) return;
+    final i = index.clamp(0, state.visiblePhotos.length - 1);
+    final anchor = state.selectionAnchor.clamp(0, state.visiblePhotos.length - 1);
     final lo = i < anchor ? i : anchor;
     final hi = i < anchor ? anchor : i;
     final range = <String>{
-      for (var k = lo; k <= hi; k++) state.photos[k].path,
+      for (var k = lo; k <= hi; k++) state.visiblePhotos[k].path,
     };
     state = state.copyWith(selectedIndex: i, picked: range);
   }
@@ -186,8 +189,9 @@ class GalleryController extends _$GalleryController {
   /// fixed anchor (selection becomes anchor..newCursor; reversing shrinks it).
   /// The keyboard analogue of [selectRangeTo].
   void extendSelection(int delta) {
-    if (state.photos.isEmpty) return;
-    final next = (state.selectedIndex + delta).clamp(0, state.photos.length - 1);
+    if (state.visiblePhotos.isEmpty) return;
+    final next =
+        (state.selectedIndex + delta).clamp(0, state.visiblePhotos.length - 1);
     if (next == state.selectedIndex) return;
     selectRangeTo(next);
   }
@@ -197,13 +201,14 @@ class GalleryController extends _$GalleryController {
   /// arrow would instead collapse to a single selection). The keyboard
   /// analogue of Ctrl+click building a multi-selection.
   void addCursorSelection(int delta) {
-    if (state.photos.isEmpty) return;
-    final next = (state.selectedIndex + delta).clamp(0, state.photos.length - 1);
+    if (state.visiblePhotos.isEmpty) return;
+    final next =
+        (state.selectedIndex + delta).clamp(0, state.visiblePhotos.length - 1);
     if (next == state.selectedIndex) return;
     state = state.copyWith(
       selectedIndex: next,
       selectionAnchor: next,
-      picked: {...state.picked, state.photos[next].path},
+      picked: {...state.picked, state.visiblePhotos[next].path},
     );
   }
 
@@ -225,11 +230,39 @@ class GalleryController extends _$GalleryController {
 
   void pickAll() {
     state = state.copyWith(
-      picked: state.photos.map((p) => p.path).toSet(),
+      picked: state.visiblePhotos.map((p) => p.path).toSet(),
     );
   }
 
   void unpickAll() => state = state.copyWith(picked: const {});
+
+  /// Switch the grid/viewer to show only photos whose immediate directory is
+  /// [dir] (null = show all). A pure view change: it clears the selection so
+  /// actions stay scoped to what's visible, but never touches
+  /// [GalleryState.rootPath] or any photo's path — so the top-left folder
+  /// label is unchanged and BestShots moves still act on each photo's real
+  /// on-disk directory.
+  ///
+  /// The cursor is parked at -1 (no active tile) rather than 0 so the newly
+  /// shown folder doesn't open with its first photo wearing the faint
+  /// cursor border — nothing is focused until the user clicks or arrows in.
+  void setSubfolderFilter(String? dir) {
+    state = state.copyWith(
+      subfolderFilter: dir,
+      clearSubfolderFilter: dir == null,
+      selectedIndex: -1,
+      selectionAnchor: 0,
+      picked: const {},
+    );
+  }
+
+  /// Park the cursor on the first visible photo if it's currently unfocused
+  /// (-1, e.g. right after a folder switch). Called when entering the viewer
+  /// so it opens on a real photo instead of the clamped fallback.
+  void ensureCursor() {
+    if (state.selectedIndex >= 0 || state.visiblePhotos.isEmpty) return;
+    state = state.copyWith(selectedIndex: 0, selectionAnchor: 0);
+  }
 
   /// Auto-select the best shots from analysis results.
   /// Picks every photo whose qualityScore is at or above the
@@ -241,7 +274,7 @@ class GalleryController extends _$GalleryController {
   void selectBest({double topPercentile = 0.2}) {
     final selector = ref.read(selectBestShotsProvider);
     final best = selector(
-      photos: state.photos,
+      photos: state.visiblePhotos,
       resultsByCacheKey: state.results,
       topPercentile: topPercentile,
     );

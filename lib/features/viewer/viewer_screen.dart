@@ -85,7 +85,7 @@ class _ViewerScreenState extends ConsumerState<ViewerScreen> {
               closeTooltip: t.tr('viewerClose'),
               positionLabel: t.tr('viewerPosition', {
                 'index': (state.selectedIndex + 1).toString(),
-                'total': state.photos.length.toString(),
+                'total': state.visiblePhotos.length.toString(),
               }),
             ),
             Expanded(
@@ -104,7 +104,7 @@ class _ViewerScreenState extends ConsumerState<ViewerScreen> {
             SizedBox(
               height: 110,
               child: Filmstrip(
-                photos: state.photos,
+                photos: state.visiblePhotos,
                 selectedIndex: state.selectedIndex,
                 picked: state.picked,
                 resultsByCacheKey: state.results,
@@ -119,10 +119,10 @@ class _ViewerScreenState extends ConsumerState<ViewerScreen> {
                   }
                 },
                 onMoveToBestShots: (i) =>
-                    _relocate(context, ref, state.photos[i].path,
+                    _relocate(context, ref, state.visiblePhotos[i].path,
                         toBestShots: true),
                 onRemoveFromBestShots: (i) =>
-                    _relocate(context, ref, state.photos[i].path,
+                    _relocate(context, ref, state.visiblePhotos[i].path,
                         toBestShots: false),
                 moveToBestShotsLabel: t.tr('moveToBestShots'),
                 removeFromBestShotsLabel: t.tr('removeFromBestShots'),
@@ -146,9 +146,9 @@ class _ViewerScreenState extends ConsumerState<ViewerScreen> {
       if (!mounted) return;
       for (final offset in const [-2, -1, 1, 2]) {
         final i = index + offset;
-        if (i < 0 || i >= state.photos.length) continue;
+        if (i < 0 || i >= state.visiblePhotos.length) continue;
         precacheImage(
-          _previewProvider(state.photos[i].decodablePath, width),
+          _previewProvider(state.visiblePhotos[i].decodablePath, width),
           context,
         );
       }
