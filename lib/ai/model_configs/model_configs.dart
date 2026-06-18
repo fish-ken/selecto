@@ -15,8 +15,10 @@ import 'nima_mobile_net_technical_config.dart';
 /// default selection. Select one by index/identity and drive preprocessing
 /// + extraction from it. Add a new model by creating its config file in
 /// this directory and appending an instance here.
+///
+/// NIMA Technical is first so it's the default model on launch.
 const List<ModelConfig> kModelConfigs = [
-  NimaMobileNetAestheticConfig(),
   NimaMobileNetTechnicalConfig(),
+  NimaMobileNetAestheticConfig(),
   Maniqa10kConfig(),
 ];
