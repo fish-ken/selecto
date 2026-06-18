@@ -3,25 +3,34 @@ import 'package:path/path.dart' as p;
 import '../../domain/entities/analysis_result.dart';
 import '../../domain/entities/photo.dart';
 
-/// One row in the gallery's subfolder side panel: a directory that directly
-/// contains photos, plus how many.
+/// One row in the gallery's subfolder side-panel tree.
 class SubfolderEntry {
   const SubfolderEntry({
     required this.dir,
     required this.label,
+    required this.depth,
     required this.count,
+    required this.isBestShots,
   });
 
   /// Absolute directory path — the value stored in
   /// [GalleryState.subfolderFilter] when this row is selected.
   final String dir;
 
-  /// Path relative to the gallery root, for display. The root directory
-  /// itself shows its own folder name.
+  /// Last path segment (display name). Parentage is shown via [depth], not
+  /// in the label.
   final String label;
 
-  /// Number of photos whose immediate directory is exactly [dir].
+  /// Indentation level in the tree (0 = the shallowest directory shown).
+  final int depth;
+
+  /// Number of photos whose immediate directory is exactly [dir]. A count of
+  /// 0 marks an intermediate ancestor included only to connect the tree —
+  /// it's shown as a non-selectable header.
   final int count;
+
+  /// Whether this directory is itself a `BestShots` folder (gets a star).
+  final bool isBestShots;
 }
 
 /// Immutable snapshot of the gallery for one render.
@@ -147,28 +156,65 @@ class GalleryState {
     ]);
   }
 
-  /// Groups [photos] by their immediate directory, one [SubfolderEntry] per
-  /// directory, sorted by display label.
+  /// Builds the side-panel tree: every directory that directly contains
+  /// photos, plus the intermediate ancestors needed to show each one nested
+  /// under its parent (so e.g. `jpg/BestShots` sits below `jpg`). Entries are
+  /// in pre-order; [SubfolderEntry.depth] is normalized so the shallowest
+  /// shown directory is at indent 0.
   static List<SubfolderEntry> _computeSubfolders(
     List<Photo> photos,
     String? rootPath,
   ) {
     if (photos.isEmpty) return const [];
+
     final counts = <String, int>{};
     for (final ph in photos) {
       final dir = p.dirname(ph.path);
       counts[dir] = (counts[dir] ?? 0) + 1;
     }
-    final entries = [
-      for (final entry in counts.entries)
+
+    // Photo directories + their ancestors strictly inside the root, so every
+    // listed child has its parent listed above it.
+    final dirs = <String>{...counts.keys};
+    if (rootPath != null) {
+      for (final d in counts.keys) {
+        var parent = p.dirname(d);
+        while (p.isWithin(rootPath, parent)) {
+          dirs.add(parent);
+          parent = p.dirname(parent);
+        }
+      }
+    }
+
+    List<String> segs(String dir) =>
+        rootPath == null ? [dir] : p.split(p.relative(dir, from: rootPath));
+    int rawDepth(String dir) =>
+        rootPath != null && p.equals(dir, rootPath) ? 0 : segs(dir).length;
+
+    final minDepth =
+        dirs.map(rawDepth).fold<int>(1 << 30, (a, b) => a < b ? a : b);
+
+    final ordered = dirs.toList()
+      ..sort((a, b) {
+        // Segment-by-segment compare → tree pre-order (parent before child,
+        // each subtree contiguous) regardless of path separator.
+        final sa = segs(a), sb = segs(b);
+        for (var i = 0; i < sa.length && i < sb.length; i++) {
+          final c = sa[i].toLowerCase().compareTo(sb[i].toLowerCase());
+          if (c != 0) return c;
+        }
+        return sa.length - sb.length;
+      });
+
+    return List.unmodifiable([
+      for (final dir in ordered)
         SubfolderEntry(
-          dir: entry.key,
-          label: rootPath == null || entry.key == rootPath
-              ? p.basename(entry.key)
-              : p.relative(entry.key, from: rootPath),
-          count: entry.value,
+          dir: dir,
+          label: p.basename(dir),
+          depth: rawDepth(dir) - minDepth,
+          count: counts[dir] ?? 0,
+          isBestShots: p.basename(dir).toLowerCase() == 'bestshots',
         ),
-    ]..sort((a, b) => a.label.toLowerCase().compareTo(b.label.toLowerCase()));
-    return List.unmodifiable(entries);
+    ]);
   }
 }

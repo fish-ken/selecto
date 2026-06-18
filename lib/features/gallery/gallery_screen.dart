@@ -432,8 +432,9 @@ class _SubfolderPanel extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final subfolders =
         ref.watch(galleryControllerProvider.select((s) => s.subfolders));
-    // Nothing to navigate (everything lives in one directory) → no panel.
-    final visible = subfolders.length > 1;
+    // Only worth showing when there's more than one navigable (photo-holding)
+    // directory to switch between.
+    final visible = subfolders.where((e) => e.count > 0).length > 1;
 
     return AnimatedSize(
       duration: const Duration(milliseconds: 220),
@@ -448,6 +449,9 @@ class _SubfolderPanel extends ConsumerWidget {
 
 /// The panel's actual content — built only when there are subfolders to show,
 /// so its `filter`/`totalCount` watches don't run while it's collapsed.
+///
+/// No right border: the slightly raised background tone separates it from the
+/// grid (a hard divider line read as an out-of-place white seam).
 class _SubfolderList extends ConsumerWidget {
   const _SubfolderList({required this.subfolders});
 
@@ -464,10 +468,7 @@ class _SubfolderList extends ConsumerWidget {
 
     return Container(
       width: 220,
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainerLow,
-        border: Border(right: BorderSide(color: Theme.of(context).dividerColor)),
-      ),
+      color: Theme.of(context).colorScheme.surfaceContainerLow,
       child: ListView(
         padding: const EdgeInsets.symmetric(vertical: 4),
         children: [
@@ -475,17 +476,26 @@ class _SubfolderList extends ConsumerWidget {
             icon: Icons.photo_library_outlined,
             label: t.tr('allPhotos'),
             count: totalCount,
+            depth: 0,
             selected: filter == null,
             onTap: () => ctrl.setSubfolderFilter(null),
           ),
           const Divider(height: 1),
           for (final sf in subfolders)
             _SubfolderItem(
-              icon: Icons.folder_outlined,
+              // BestShots folders get a hollow (outlined) star instead of a
+              // folder icon.
+              icon: sf.isBestShots
+                  ? Icons.star_border_rounded
+                  : Icons.folder_outlined,
+              iconColor: sf.isBestShots ? Colors.white : null,
               label: sf.label,
-              count: sf.count,
+              // Intermediate ancestors (count 0) are non-selectable headers
+              // shown only to make the nesting clear.
+              count: sf.count > 0 ? sf.count : null,
+              depth: sf.depth,
               selected: filter == sf.dir,
-              onTap: () => ctrl.setSubfolderFilter(sf.dir),
+              onTap: sf.count > 0 ? () => ctrl.setSubfolderFilter(sf.dir) : null,
             ),
         ],
       ),
@@ -497,51 +507,84 @@ class _SubfolderItem extends StatelessWidget {
   const _SubfolderItem({
     required this.icon,
     required this.label,
-    required this.count,
     required this.selected,
-    required this.onTap,
+    required this.depth,
+    this.count,
+    this.iconColor,
+    this.onTap,
   });
 
   final IconData icon;
   final String label;
-  final int count;
   final bool selected;
-  final VoidCallback onTap;
+
+  /// Indentation level — each level adds a left inset so the tree reads as a
+  /// hierarchy (a child like BestShots sits to the right of its parent).
+  final int depth;
+
+  /// Trailing count; null hides it (intermediate header rows).
+  final int? count;
+
+  /// Overrides the icon tint (e.g. the amber BestShots star).
+  final Color? iconColor;
+
+  /// Tap handler; null makes the row a non-interactive header.
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final enabled = onTap != null;
+    final labelColor = selected
+        ? scheme.primary
+        : enabled
+            ? null
+            : scheme.onSurfaceVariant;
+
+    final content = Padding(
+      padding: EdgeInsets.only(
+        left: 12 + depth * 16.0,
+        right: 12,
+        top: 10,
+        bottom: 10,
+      ),
+      child: Row(
+        children: [
+          Icon(
+            icon,
+            size: 18,
+            color: iconColor ?? (selected ? scheme.primary : labelColor),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              label,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
+                color: labelColor,
+              ),
+            ),
+          ),
+          if (count != null) ...[
+            const SizedBox(width: 6),
+            Text(
+              '$count',
+              style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
+            ),
+          ],
+        ],
+      ),
+    );
+
+    // Intermediate header: no ink/selection, just the indented label.
+    if (!enabled) return content;
+
     return Material(
       color: selected
           ? scheme.primary.withValues(alpha: 0.14)
           : Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-          child: Row(
-            children: [
-              Icon(icon, size: 18, color: selected ? scheme.primary : null),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  label,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontWeight: selected ? FontWeight.w600 : FontWeight.normal,
-                    color: selected ? scheme.primary : null,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 6),
-              Text(
-                '$count',
-                style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
-              ),
-            ],
-          ),
-        ),
-      ),
+      child: InkWell(onTap: onTap, child: content),
     );
   }
 }
