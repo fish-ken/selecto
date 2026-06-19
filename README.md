@@ -1,6 +1,8 @@
 # Selecto
 
-![](readme_screenshot_0.png)
+<img width="1355" height="878" alt="image" src="https://github.com/user-attachments/assets/4622b872-a915-4480-97a2-dee6edce11e2" />
+<img width="1355" height="878" alt="image" src="https://github.com/user-attachments/assets/8705ac3b-d22b-45aa-9dc6-f1162bc095a1" />
+
 Windows · macOS · Linux 데스크톱용 **AI 기반 사진 컬링/선별 앱**.
 
 
