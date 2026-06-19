@@ -44,6 +44,17 @@ class SelectedModel extends _$SelectedModel {
   void select(ModelConfig model) => state = model;
 }
 
+/// Whether the viewer's EXIF / histogram info panel is open. keepAlive so the
+/// choice survives closing and re-opening the detail view within a session
+/// (it's a UI preference, not per-screen state).
+@Riverpod(keepAlive: true)
+class ViewerInfoVisible extends _$ViewerInfoVisible {
+  @override
+  bool build() => false;
+
+  void toggle() => state = !state;
+}
+
 /// Recreated whenever [selectedModelProvider] changes. The old service's
 /// `dispose` runs via `ref.onDispose`, tearing down the isolate pool
 /// before the new one spins up.

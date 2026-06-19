@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../app/providers.dart';
 import '../../l10n/l10n.dart';
 import '../gallery/gallery_controller.dart';
 import '../gallery/gallery_state.dart';
@@ -39,17 +40,16 @@ class _ViewerScreenState extends ConsumerState<ViewerScreen> {
   // is scheduled once rather than on every rebuild.
   int? _precachedAround;
 
-  // Whether the EXIF / histogram info panel is open (toggled by the top-bar
-  // button or the `i` key).
-  bool _infoVisible = false;
-
-  void _toggleInfo() => setState(() => _infoVisible = !_infoVisible);
+  // Info-panel visibility lives in a keepAlive provider so it persists across
+  // opening/closing the viewer. Toggled by the top-bar button or the `i` key.
+  void _toggleInfo() => ref.read(viewerInfoVisibleProvider.notifier).toggle();
 
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(galleryControllerProvider);
     final ctrl = ref.read(galleryControllerProvider.notifier);
     final t = ref.watch(stringsProvider);
+    final infoVisible = ref.watch(viewerInfoVisibleProvider);
 
     // Warm the preview cache for adjacent photos so stepping ←/→ shows the
     // next photo's soft preview instantly — instead of a black gap or the
@@ -95,7 +95,7 @@ class _ViewerScreenState extends ConsumerState<ViewerScreen> {
                 'index': (state.selectedIndex + 1).toString(),
                 'total': state.visiblePhotos.length.toString(),
               }),
-              infoVisible: _infoVisible,
+              infoVisible: infoVisible,
               infoTooltip: t.tr('info'),
               onToggleInfo: _toggleInfo,
             ),
@@ -115,7 +115,7 @@ class _ViewerScreenState extends ConsumerState<ViewerScreen> {
                       onSecondaryTap: () => ctrl.togglePickByPath(photo.path),
                     ),
                   ),
-                  if (_infoVisible)
+                  if (infoVisible)
                     InfoPanel(
                       // Re-key per photo so the panel reloads its EXIF +
                       // histogram for the newly shown image.
