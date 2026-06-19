@@ -120,7 +120,10 @@ class _ViewerScreenState extends ConsumerState<ViewerScreen> {
                       // Re-key per photo so the panel reloads its EXIF +
                       // histogram for the newly shown image.
                       key: ValueKey(photo.decodablePath),
-                      path: photo.decodablePath,
+                      imagePath: photo.decodablePath,
+                      // Original path (the RAW for ARW/NEF/…) so EXIF reads
+                      // from the file that actually carries it.
+                      exifPath: photo.path,
                       fileBytes: photo.byteSize,
                     ),
                 ],
@@ -219,7 +222,7 @@ class _ZoomableImageState extends State<_ZoomableImage>
 
   static const double _minScale = 1.0;
   static const double _maxScale = 8.0;
-  static const double _doubleTapScale = 2.0;
+  static const double _doubleTapScale = 4.0;
   static const _doubleTapDuration = Duration(milliseconds: 220);
   static const _wheelDuration = Duration(milliseconds: 120);
 

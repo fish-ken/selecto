@@ -8,10 +8,20 @@ import '../photo_metadata.dart';
 /// list of EXIF fields below. Loads its data for [path] once (key it by path
 /// in the parent so a new photo reloads).
 class InfoPanel extends ConsumerStatefulWidget {
-  const InfoPanel({super.key, required this.path, required this.fileBytes});
+  const InfoPanel({
+    super.key,
+    required this.imagePath,
+    required this.exifPath,
+    required this.fileBytes,
+  });
 
-  /// The decodable file (plain JPEG, or a RAW's embedded preview).
-  final String path;
+  /// The decodable file (plain JPEG, or a RAW's embedded preview) — used for
+  /// the histogram and as the EXIF fallback.
+  final String imagePath;
+
+  /// The original file (e.g. a `.ARW`) — read first for EXIF, since a RAW's
+  /// embedded preview often lacks an EXIF segment.
+  final String exifPath;
 
   /// Original file size, shown as a row.
   final int fileBytes;
@@ -21,8 +31,11 @@ class InfoPanel extends ConsumerStatefulWidget {
 }
 
 class _InfoPanelState extends ConsumerState<InfoPanel> {
-  late final Future<PhotoMetadata> _future =
-      loadPhotoMetadata(widget.path, fileBytes: widget.fileBytes);
+  late final Future<PhotoMetadata> _future = loadPhotoMetadata(
+    widget.imagePath,
+    exifPath: widget.exifPath,
+    fileBytes: widget.fileBytes,
+  );
 
   static const _bg = Color(0xFF161616);
 

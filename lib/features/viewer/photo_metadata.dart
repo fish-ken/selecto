@@ -34,12 +34,37 @@ class Histogram {
   bool get isEmpty => max <= 0;
 }
 
-/// Reads [path] once and derives both the EXIF rows and the histogram.
-/// [fileBytes] (the original file size) is shown as a row when given.
-Future<PhotoMetadata> loadPhotoMetadata(String path, {int? fileBytes}) async {
-  final bytes = await File(path).readAsBytes();
-  final exif = await _readExif(bytes, fileBytes: fileBytes);
-  final histogram = await _histogram(bytes);
+/// Derives the EXIF rows and the histogram for one photo.
+///
+/// [imagePath] is the decodable image (a plain JPEG, or a RAW's embedded
+/// preview) — used for the histogram, and as the EXIF fallback.
+/// [exifPath] is the original file (e.g. the `.ARW`); when given and
+/// different, EXIF is read from it first. This matters for RAW: formats like
+/// Sony ARW are TIFF-based and carry the full shooting EXIF in their IFDs,
+/// while the extracted preview JPEG we decode usually has no EXIF segment.
+/// [fileBytes] (original file size) is shown as a row when given.
+Future<PhotoMetadata> loadPhotoMetadata(
+  String imagePath, {
+  String? exifPath,
+  int? fileBytes,
+}) async {
+  final imageBytes = await File(imagePath).readAsBytes();
+
+  Map<String, IfdTag> tags = const {};
+  final ep = exifPath ?? imagePath;
+  if (ep != imagePath) {
+    // Read the whole original (RAW headers can reference EXIF values past the
+    // first chunk). One-time cost when the panel opens for this photo.
+    tags = await _readExifTags(await File(ep).readAsBytes());
+  }
+  // Fall back to the decodable image's EXIF when the original yielded no
+  // usable shooting EXIF — plain JPEGs (where ep == imagePath), RAW formats
+  // the parser can't read (e.g. Fuji RAF → 0 tags), or files whose only tags
+  // are non-shooting (e.g. a stripped JPEG mis-named .nef).
+  if (!_hasShootingExif(tags)) tags = await _readExifTags(imageBytes);
+
+  final exif = _rowsFromTags(tags, fileBytes: fileBytes);
+  final histogram = await _histogram(imageBytes);
   return PhotoMetadata(exif: exif, histogram: histogram);
 }
 
@@ -47,14 +72,24 @@ Future<PhotoMetadata> loadPhotoMetadata(String path, {int? fileBytes}) async {
 // EXIF
 // ---------------------------------------------------------------------------
 
-Future<List<ExifRow>> _readExif(Uint8List bytes, {int? fileBytes}) async {
-  Map<String, IfdTag> tags = const {};
+Future<Map<String, IfdTag>> _readExifTags(Uint8List bytes) async {
   try {
-    tags = await readExifFromBytes(bytes);
+    return await readExifFromBytes(bytes);
   } catch (_) {
-    tags = const {};
+    return const {};
   }
+}
 
+/// Whether [tags] carry actual shooting metadata (vs. just colorspace/size).
+/// Used to decide whether to fall back to another EXIF source.
+bool _hasShootingExif(Map<String, IfdTag> tags) =>
+    tags.containsKey('Image Make') ||
+    tags.containsKey('Image Model') ||
+    tags.containsKey('EXIF FNumber') ||
+    tags.containsKey('EXIF ExposureTime') ||
+    tags.containsKey('EXIF DateTimeOriginal');
+
+List<ExifRow> _rowsFromTags(Map<String, IfdTag> tags, {int? fileBytes}) {
   final rows = <ExifRow>[];
   void add(String key, String? value) {
     final v = value?.trim();
