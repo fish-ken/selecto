@@ -22,6 +22,7 @@ class PhotoTile extends StatelessWidget {
     required this.removeFromBestShotsLabel,
     this.onMoveToBestShots,
     this.onRemoveFromBestShots,
+    this.onContextOpen,
     this.isInBestShots = false,
     this.analysis,
   });
@@ -38,9 +39,14 @@ class PhotoTile extends StatelessWidget {
   final String removeFromBestShotsLabel;
 
   /// Right-click context-menu actions. Move = relocate into the folder's
-  /// `BestShots/` subfolder; Remove = move back out to the parent folder.
+  /// `A-cut/` subfolder; Remove = move back out to the parent folder.
   final VoidCallback? onMoveToBestShots;
   final VoidCallback? onRemoveFromBestShots;
+
+  /// Invoked when a right-click opens the context menu, before it shows.
+  /// The connector uses it to make a right-clicked, not-yet-selected tile the
+  /// sole selection (so the menu acts on it, not on a stale multi-selection).
+  final VoidCallback? onContextOpen;
 
   /// Whether this photo currently lives inside a `BestShots` folder —
   /// decides which menu item is enabled.
@@ -51,6 +57,9 @@ class PhotoTile extends StatelessWidget {
     BuildContext context,
     Offset globalPosition,
   ) async {
+    // Right-clicking an unselected tile makes it the sole selection first,
+    // so the menu acts on it rather than a previous multi-selection.
+    onContextOpen?.call();
     final overlay =
         Overlay.of(context).context.findRenderObject() as RenderBox;
     final action = await showMenu<_TileMenuAction>(

@@ -333,9 +333,16 @@ class _PhotoTileConnected extends ConsumerWidget {
         ctrl.setCursor(index);
         context.push('/viewer');
       },
+      // Right-clicking a tile that isn't already selected clears the previous
+      // selection and selects only it (so the context-menu action targets the
+      // right-clicked photo, not a stale multi-selection). Right-clicking a
+      // selected tile keeps the whole selection.
+      onContextOpen: () {
+        if (!isPicked) ctrl.selectSingle(index);
+      },
       // Right-click opens a context menu to move this photo (or the whole
       // current selection, if this photo is part of it) into / out of the
-      // folder's BestShots subfolder.
+      // folder's A-cut subfolder.
       isInBestShots: isInBestShotsPath(photo.path),
       onMoveToBestShots: () =>
           _relocate(context, ref, photo.path, toBestShots: true),
