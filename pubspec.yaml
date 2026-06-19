@@ -78,8 +78,54 @@ dev_dependencies:
   custom_lint: ^0.6.4
   riverpod_lint: ^2.3.10
 
+  # Packaging — Windows MSIX installer. Used directly via
+  # `dart run msix:create` and by flutter_distributor's windows/msix target.
+  msix: ^3.16.0
+
+  # App icon generation — one source PNG → Windows .ico + macOS iconset.
+  flutter_launcher_icons: ^0.14.0
+
 flutter:
   uses-material-design: true
   assets:
     - assets/models/
     - assets/i18n/
+
+# ---------------------------------------------------------------------------
+# Windows MSIX installer config (read by the `msix` package).
+#   dart run msix:create          → sideloadable .msix (test-signed)
+#   dart run msix:create --store  → Microsoft Store submission package
+# For real distribution, sign with a code-signing cert (see the commented
+# certificate_* keys) so Windows SmartScreen doesn't flag an unknown
+# publisher. See docs/DISTRIBUTION.md.
+# ---------------------------------------------------------------------------
+msix_config:
+  display_name: Selecto
+  publisher_display_name: NM Monster
+  identity_name: com.nmmonster.selecto
+  msix_version: 1.0.0.0
+  description: AI-powered photo culling for desktop
+  # The app reads and moves photos in user-chosen folders, so it needs broad
+  # file-system access (a restricted capability — fine for sideloading; needs
+  # justification for Store submission).
+  capabilities: broadFileSystemAccess
+  logo_path: assets/icon/app_icon.png
+  # --- code signing for distribution (uncomment + fill in) ---
+  # certificate_path: windows\selecto.pfx
+  # certificate_password: <password>
+  # publisher: CN=NM Monster, O=NM Monster, C=KR   # must match the cert subject
+
+# ---------------------------------------------------------------------------
+# App icon generation (flutter_launcher_icons).
+#   dart run tool/generate_app_icon.dart   # regenerate the placeholder source PNG
+#   dart run flutter_launcher_icons        # → windows .ico + macOS iconset
+# Linux desktop icons are set per packaging target (linux/packaging/*); the
+# MSIX tile uses msix_config.logo_path above. All point at the same source.
+# ---------------------------------------------------------------------------
+flutter_launcher_icons:
+  image_path: assets/icon/app_icon.png
+  windows:
+    generate: true
+    icon_size: 256
+  macos:
+    generate: true

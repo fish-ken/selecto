@@ -1,0 +1,17 @@
+# Debian .deb control metadata — flutter_distributor's deb target.
+# Requires dpkg-deb (present on Debian/Ubuntu by default).
+#
+# Build on Linux:
+#   flutter_distributor package --platform linux --targets deb
+display_name: Selecto
+package_name: selecto
+maintainer:
+  name: NM Monster
+  email: mousedoc@nm-monster.com
+section: graphics
+priority: optional
+# Runtime libs the GTK Flutter bundle links against.
+dependencies:
+  - libgtk-3-0
+  - libblkid1
+  - liblzma5

@@ -1,0 +1,45 @@
+# flutter_distributor — one config, three platforms.
+#
+#   dart pub global activate flutter_distributor   # one-time, per machine
+#
+# Build on the matching OS (no cross-compiling):
+#   Windows : flutter_distributor package --platform windows --targets msix
+#   macOS   : flutter_distributor package --platform macos   --targets dmg
+#   Linux   : flutter_distributor package --platform linux   --targets deb,appimage
+#
+# Or run a whole named release on the current OS (skips jobs for other OSes):
+#   flutter_distributor release --name prod
+#
+# Output goes under dist/. Per-target packaging knobs live in:
+#   pubspec.yaml (msix_config)                 → Windows MSIX
+#   macos/packaging/dmg/make_config.yaml       → macOS DMG
+#   linux/packaging/deb/make_config.yaml       → Linux .deb
+#   linux/packaging/appimage/make_config.yaml  → Linux AppImage
+output: dist/
+releases:
+  - name: prod
+    jobs:
+      - name: windows-msix
+        package:
+          platform: windows
+          target: msix
+          build_args:
+            release: true
+      - name: macos-dmg
+        package:
+          platform: macos
+          target: dmg
+          build_args:
+            release: true
+      - name: linux-deb
+        package:
+          platform: linux
+          target: deb
+          build_args:
+            release: true
+      - name: linux-appimage
+        package:
+          platform: linux
+          target: appimage
+          build_args:
+            release: true

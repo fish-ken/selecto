@@ -1,0 +1,27 @@
+# macOS .dmg layout — consumed by flutter_distributor's dmg target
+# (which uses Node's `appdmg`:  npm install -g appdmg).
+#
+# Build on macOS:
+#   flutter_distributor package --platform macos --targets dmg
+#
+# NOTE: `path` is the staged .app filename (flutter_distributor stages it for
+# appdmg). Verify it matches the macOS Runner Product Name. Code-sign +
+# notarize for Gatekeeper before sharing — see docs/DISTRIBUTION.md.
+title: Selecto
+# icon: macos/Runner/Assets.xcassets/AppIcon.appiconset/app_icon_512.png
+window:
+  position:
+    x: 100
+    y: 100
+  size:
+    width: 660
+    height: 400
+contents:
+  - x: 180
+    y: 180
+    type: file
+    path: selecto.app
+  - x: 480
+    y: 180
+    type: link
+    path: /Applications

@@ -1,0 +1,16 @@
+# AppImage metadata — flutter_distributor's appimage target.
+# Requires appimagetool on PATH:
+#   https://github.com/AppImage/AppImageKit/releases
+#
+# Build on Linux:
+#   flutter_distributor package --platform linux --targets appimage
+#
+display_name: Selecto
+icon: assets/icon/app_icon.png
+keywords:
+  - photo
+  - culling
+generic_name: Photo Culler
+categories:
+  - Graphics
+  - Photography
