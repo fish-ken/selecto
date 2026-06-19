@@ -1,9 +1,9 @@
 name: Build All (Release)
 
 # OS별 워크플로(build-windows / build-macos / build-linux)를 한 번에
-# 병렬로 호출하는 배치 진입점입니다.
-#   - 수동: Actions 탭에서 "Run workflow"
-#   - 자동: v* 형태의 태그를 푸시할 때 (예: v0.1.0)
+# 병렬로 호출해 설치본(.msix / .dmg / .deb)을 만드는 배치 진입점입니다.
+#   - 수동: Actions 탭에서 "Run workflow" (아티팩트만)
+#   - 자동: v* 태그 푸시 (예: v0.1.0) → 설치본을 GitHub Release 에 첨부
 on:
   workflow_dispatch:
   push:
@@ -11,17 +11,36 @@ on:
       - 'v*'
 
 permissions:
-  contents: read
+  contents: write   # 릴리스 생성 + 에셋 업로드에 필요
 
 jobs:
   windows:
-    name: Windows (x64)
+    name: Windows (MSIX)
     uses: ./.github/workflows/build-windows.yml
 
   macos:
-    name: macOS
+    name: macOS (.dmg)
     uses: ./.github/workflows/build-macos.yml
 
   linux:
-    name: Linux (x64)
+    name: Linux (.deb + .AppImage)
     uses: ./.github/workflows/build-linux.yml
+
+  release:
+    name: Publish GitHub Release
+    needs: [windows, macos, linux]
+    # 태그 푸시일 때만 릴리스를 만듭니다(수동 실행은 아티팩트까지만).
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v6
+        with:
+          path: artifacts
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/**/*
+          generate_release_notes: true
+          fail_on_unmatched_files: true

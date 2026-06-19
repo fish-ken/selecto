@@ -1,4 +1,4 @@
-name: Build Windows (x64)
+name: Build Windows (MSIX)
 
 # 단독 실행(Actions 탭의 "Run workflow")과, build-all.yml 에서의 호출
 # (workflow_call) 을 모두 지원합니다.
@@ -9,11 +9,10 @@ on:
 env:
   # 필요 시 특정 버전 고정으로 바꾸세요: flutter-version: '3.29.0'
   FLUTTER_CHANNEL: stable
-  ORG: com.fish-ken
 
 jobs:
   build:
-    name: Build Windows x64 release
+    name: Build Windows MSIX
     runs-on: windows-latest
     steps:
       - name: Checkout (LFS 모델 포함)
@@ -27,10 +26,9 @@ jobs:
           channel: ${{ env.FLUTTER_CHANNEL }}
           cache: true
 
-      # 플랫폼 폴더(windows/)는 저장소에 커밋되지 않으므로 매번 생성합니다.
-      - name: Generate platform scaffolding (windows/)
-        run: flutter create --platforms=windows --org=${{ env.ORG }} .
-
+      # windows/ 플랫폼 폴더는 저장소에 커밋돼 있고, 누락된 플러그인
+      # 레지스트런트/ephemeral 은 `flutter pub get` 이 재생성하므로
+      # `flutter create` 단계는 더 이상 필요하지 않습니다.
       - name: Install dependencies
         run: flutter pub get
 
@@ -38,13 +36,15 @@ jobs:
       - name: Run code generation
         run: dart run build_runner build --delete-conflicting-outputs
 
-      - name: Build Windows release
-        run: flutter build windows --release
+      # msix:create 가 내부적으로 `flutter build windows --release` 후 .msix 패키징.
+      # 인증서 미지정 시 테스트 자체 서명됩니다(정식 배포는 pubspec 의
+      # msix_config 에 코드서명 인증서를 넣으세요 — docs/DISTRIBUTION.md).
+      - name: Build MSIX installer
+        run: dart run msix:create --output-path dist --output-name selecto
 
-      # Release\ 폴더 전체(.exe + DLL + data\)를 배포해야 하므로 통째로 업로드.
       - name: Upload artifact
         uses: actions/upload-artifact@v6
         with:
-          name: selecto-windows-x64
-          path: build/windows/x64/runner/Release/
+          name: selecto-windows-msix
+          path: dist/*.msix
           if-no-files-found: error

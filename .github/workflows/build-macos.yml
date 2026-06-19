@@ -1,4 +1,4 @@
-name: Build macOS
+name: Build macOS (.dmg)
 
 # 단독 실행과 build-all.yml 에서의 호출(workflow_call) 모두 지원.
 on:
@@ -7,11 +7,10 @@ on:
 
 env:
   FLUTTER_CHANNEL: stable
-  ORG: com.fish-ken
 
 jobs:
   build:
-    name: Build macOS release
+    name: Build macOS .dmg
     runs-on: macos-latest
     steps:
       - name: Checkout (LFS 모델 포함)
@@ -25,30 +24,30 @@ jobs:
           channel: ${{ env.FLUTTER_CHANNEL }}
           cache: true
 
-      # 플랫폼 폴더(macos/)는 커밋되지 않으므로 매번 생성.
-      - name: Generate platform scaffolding (macos/)
-        run: flutter create --platforms=macos --org=${{ env.ORG }} .
-
+      # macos/ 플랫폼 폴더는 커밋돼 있으므로 `flutter create` 불필요.
       - name: Install dependencies
         run: flutter pub get
 
       - name: Run code generation
         run: dart run build_runner build --delete-conflicting-outputs
 
-      - name: Build macOS release
-        run: flutter build macos --release
+      # dmg 패키징(appdmg) 도구.
+      - name: Install dmg tooling
+        run: npm install -g appdmg
 
-      # .app 은 심볼릭 링크가 포함된 번들이라 upload-artifact 로 바로 올리면
-      # 깨질 수 있음 → ditto 로 번들을 보존하는 zip 으로 압축 후 업로드.
-      - name: Package .app bundle
+      - name: Activate flutter_distributor
         run: |
-          cd build/macos/Build/Products/Release
-          APP=$(ls -d *.app | head -n1)
-          ditto -c -k --keepParent "$APP" selecto-macos.zip
+          dart pub global activate flutter_distributor
+          echo "$HOME/.pub-cache/bin" >> "$GITHUB_PATH"
+
+      # 서명/노터라이즈 없이 만든 .dmg 는 Gatekeeper 경고가 뜹니다(테스트용
+      # 으론 동작). 정식 배포는 Apple 자격증명을 시크릿으로 추가하세요.
+      - name: Package .dmg
+        run: flutter_distributor package --platform macos --targets dmg
 
       - name: Upload artifact
         uses: actions/upload-artifact@v6
         with:
-          name: selecto-macos
-          path: build/macos/Build/Products/Release/selecto-macos.zip
+          name: selecto-macos-dmg
+          path: dist/**/*.dmg
           if-no-files-found: error
