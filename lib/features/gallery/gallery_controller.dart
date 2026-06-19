@@ -336,7 +336,7 @@ class GalleryController extends _$GalleryController {
       if (isInBestShotsPath(photo.path) == toBestShots) continue;
 
       final dir = p.dirname(photo.path);
-      final destDir = toBestShots ? p.join(dir, 'BestShots') : p.dirname(dir);
+      final destDir = toBestShots ? p.join(dir, 'A-cut') : p.dirname(dir);
       try {
         final newPath = await repo.movePhoto(photo, destDir);
         final relocated = _withPath(photo, newPath);

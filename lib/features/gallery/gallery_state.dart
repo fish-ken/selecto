@@ -233,12 +233,13 @@ class GalleryState {
           label: p.basename(dir),
           depth: rawDepth(dir) - minDepth,
           count: counts[dir] ?? 0,
-          isBestShots: p.basename(dir).toLowerCase() == 'bestshots',
+          isBestShots: p.basename(dir).toLowerCase() == 'a-cut',
         ),
     ]);
   }
 }
 
-/// True if [path]'s immediate parent directory is a `BestShots` folder.
+/// True if [path]'s immediate parent directory is an `A-cut` folder
+/// (the curated/best-shots folder; formerly named `BestShots`).
 bool isInBestShotsPath(String path) =>
-    p.basename(p.dirname(path)).toLowerCase() == 'bestshots';
+    p.basename(p.dirname(path)).toLowerCase() == 'a-cut';

@@ -515,7 +515,9 @@ class _SubfolderList extends ConsumerWidget {
                   ? Icons.star_border_rounded
                   : Icons.folder_outlined,
               iconColor: sf.isBestShots ? Colors.white : null,
-              label: sf.label,
+              // A-cut folders show the localized label ("A컷"/"A-cut"/…)
+              // instead of the literal on-disk folder name.
+              label: sf.isBestShots ? t.tr('aCut') : sf.label,
               // Intermediate ancestors (count 0) are non-selectable headers
               // shown only to make the nesting clear.
               count: sf.count > 0 ? sf.count : null,
