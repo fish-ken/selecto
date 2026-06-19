@@ -169,7 +169,7 @@ class _ViewerScreenState extends ConsumerState<ViewerScreen> {
     final width = _previewCacheWidth(context);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      for (final offset in const [-2, -1, 1, 2]) {
+      for (final offset in const [-3, -2, -1, 1, 2, 3]) {
         final i = index + offset;
         if (i < 0 || i >= state.visiblePhotos.length) continue;
         precacheImage(
@@ -377,13 +377,17 @@ class _ProgressivePhoto extends StatelessWidget {
     return Stack(
       fit: StackFit.expand,
       children: [
-        // Soft, fast preview underneath. gaplessPlayback bridges the brief
-        // decode gap on a cache miss; on a precache hit it shows at once.
+        // Soft, fast preview underneath. NO gaplessPlayback on purpose: with
+        // it, the layer holds the last *completed* decode, so flipping faster
+        // than previews decode leaves an earlier photo lingering here until it
+        // catches up. Without it the layer clears on every photo change and
+        // only ever shows this photo (precached neighbors keep normal
+        // navigation instant; only flips that outrun the precache blank
+        // briefly instead of showing a stale image).
         Image(
           image: _previewProvider(path, _previewCacheWidth(context)),
           fit: BoxFit.contain,
           filterQuality: FilterQuality.low,
-          gaplessPlayback: true,
           // Stay silent on error — the full-res layer shows the broken icon.
           errorBuilder: (_, __, ___) => const SizedBox.shrink(),
         ),
