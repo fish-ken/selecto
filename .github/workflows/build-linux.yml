@@ -80,17 +80,18 @@ jobs:
           LINUX_GPG_KEY: ${{ secrets.LINUX_GPG_KEY }}
           LINUX_GPG_PASSPHRASE: ${{ secrets.LINUX_GPG_PASSPHRASE }}
         run: |
-          sudo apt-get install -y dpkg-sig
-
           # GPG 키 임포트
           echo "$LINUX_GPG_KEY" | base64 --decode | \
-            gpg --batch --import --passphrase "$LINUX_GPG_PASSPHRASE"
+            gpg --batch --import
 
-          # dist 아래 생성된 .deb 파일 전체에 서명
+          # .deb 마다 분리 서명 파일(.asc) 생성
+          # dpkg-sig 는 Ubuntu 22.04+ 에서 제거됨 → detached signature 방식 사용
           for deb in dist/**/*.deb; do
             echo "서명 중: $deb"
-            dpkg-sig --sign builder "$deb" \
-              --gpg-options "--passphrase $LINUX_GPG_PASSPHRASE --batch --no-tty"
+            gpg --batch --yes \
+              --pinentry-mode loopback \
+              --passphrase "$LINUX_GPG_PASSPHRASE" \
+              --detach-sign --armor "$deb"
           done
 
       - name: Upload artifact
@@ -99,6 +100,7 @@ jobs:
           name: selecto-linux
           path: |
             dist/**/*.deb
+            dist/**/*.deb.asc
             dist/**/*.AppImage
           if-no-files-found: error
           retention-days: 7
