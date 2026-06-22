@@ -7,7 +7,6 @@ on:
   workflow_call:
 
 env:
-  # 필요 시 특정 버전 고정으로 바꾸세요: flutter-version: '3.29.0'
   FLUTTER_CHANNEL: stable
 
 jobs:
@@ -26,21 +25,36 @@ jobs:
           channel: ${{ env.FLUTTER_CHANNEL }}
           cache: true
 
-      # windows/ 플랫폼 폴더는 저장소에 커밋돼 있고, 누락된 플러그인
-      # 레지스트런트/ephemeral 은 `flutter pub get` 이 재생성하므로
-      # `flutter create` 단계는 더 이상 필요하지 않습니다.
       - name: Install dependencies
         run: flutter pub get
 
-      # *.g.dart (Riverpod/Drift/Freezed) 가 없으면 컴파일이 실패하므로 필수.
       - name: Run code generation
         run: dart run build_runner build --delete-conflicting-outputs
 
-      # msix:create 가 내부적으로 `flutter build windows --release` 후 .msix 패키징.
-      # 인증서 미지정 시 테스트 자체 서명됩니다(정식 배포는 pubspec 의
-      # msix_config 에 코드서명 인증서를 넣으세요 — docs/DISTRIBUTION.md).
+      # WINDOWS_CERT_BASE64 시크릿이 있으면 서명된 MSIX,
+      # 없으면 테스트 자체서명 MSIX 를 생성합니다.
+      #
+      # 서명 인증서 준비 방법:
+      #   1. 코드서명 인증서(.pfx) 구매 또는 Azure Trusted Signing 사용
+      #   2. base64 인코딩: certutil -encode selecto.pfx selecto.b64
+      #   3. GitHub Secrets 에 추가:
+      #        WINDOWS_CERT_BASE64 = selecto.b64 의 내용 (헤더/푸터 제외)
+      #        WINDOWS_CERT_PASSWORD = .pfx 비밀번호
       - name: Build MSIX installer
-        run: dart run msix:create --output-path dist --output-name selecto
+        shell: pwsh
+        run: |
+          if ("${{ secrets.WINDOWS_CERT_BASE64 }}" -ne "") {
+            Write-Host "서명 인증서 있음 — 서명된 MSIX 빌드"
+            $bytes = [Convert]::FromBase64String("${{ secrets.WINDOWS_CERT_BASE64 }}")
+            [IO.File]::WriteAllBytes("windows\selecto.pfx", $bytes)
+            dart run msix:create --output-path dist --output-name selecto `
+              --certificate-path windows\selecto.pfx `
+              --certificate-password "${{ secrets.WINDOWS_CERT_PASSWORD }}"
+            Remove-Item windows\selecto.pfx
+          } else {
+            Write-Host "서명 인증서 없음 — 테스트 자체서명 MSIX 빌드"
+            dart run msix:create --output-path dist --output-name selecto
+          }
 
       - name: Upload artifact
         uses: actions/upload-artifact@v6

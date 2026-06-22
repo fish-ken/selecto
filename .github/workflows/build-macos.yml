@@ -24,26 +24,106 @@ jobs:
           channel: ${{ env.FLUTTER_CHANNEL }}
           cache: true
 
-      # macos/ 플랫폼 폴더는 커밋돼 있으므로 `flutter create` 불필요.
       - name: Install dependencies
         run: flutter pub get
 
       - name: Run code generation
         run: dart run build_runner build --delete-conflicting-outputs
 
-      # dmg 패키징(appdmg) 도구.
+      # dmg 레이아웃 생성 도구 (appdmg).
       - name: Install dmg tooling
         run: npm install -g appdmg
 
-      - name: Activate flutter_distributor
-        run: |
-          dart pub global activate flutter_distributor
-          echo "$HOME/.pub-cache/bin" >> "$GITHUB_PATH"
+      - name: Build macOS .app
+        run: flutter build macos --release
 
-      # 서명/노터라이즈 없이 만든 .dmg 는 Gatekeeper 경고가 뜹니다(테스트용
-      # 으론 동작). 정식 배포는 Apple 자격증명을 시크릿으로 추가하세요.
-      - name: Package .dmg
-        run: flutter_distributor package --platform macos --targets dmg
+      # MACOS_CERT_P12 시크릿이 있으면 Developer ID 서명을 진행합니다.
+      #
+      # 인증서 준비 방법:
+      #   1. Apple Developer 계정에서 "Developer ID Application" 인증서 생성
+      #   2. Keychain 에서 .p12 로 내보내기 (비밀번호 설정)
+      #   3. base64 인코딩: base64 -i selecto.p12 | pbcopy
+      #   4. GitHub Secrets 에 추가:
+      #        MACOS_CERT_P12       = base64 인코딩된 .p12
+      #        MACOS_CERT_PASSWORD  = .p12 비밀번호
+      #        MACOS_CERT_IDENTITY  = "Developer ID Application: 이름 (팀ID)"
+      #        APPLE_ID             = Apple ID 이메일
+      #        APPLE_APP_PASSWORD   = 앱 전용 비밀번호 (appleid.apple.com 에서 생성)
+      #        APPLE_TEAM_ID        = Apple Developer 팀 ID (10자리 영숫자)
+      - name: Import signing certificate
+        if: ${{ secrets.MACOS_CERT_P12 != '' }}
+        env:
+          MACOS_CERT_P12: ${{ secrets.MACOS_CERT_P12 }}
+          MACOS_CERT_PASSWORD: ${{ secrets.MACOS_CERT_PASSWORD }}
+        run: |
+          KEYCHAIN_PASS=$(openssl rand -hex 16)
+          echo "KEYCHAIN_PASS=$KEYCHAIN_PASS" >> "$GITHUB_ENV"
+
+          security create-keychain -p "$KEYCHAIN_PASS" build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p "$KEYCHAIN_PASS" build.keychain
+          # 1시간 후 자동 잠금
+          security set-keychain-settings -lut 3600 build.keychain
+
+          echo "$MACOS_CERT_P12" | base64 --decode > /tmp/cert.p12
+          security import /tmp/cert.p12 \
+            -k build.keychain \
+            -P "$MACOS_CERT_PASSWORD" \
+            -T /usr/bin/codesign
+          security set-key-partition-list \
+            -S apple-tool:,apple:,codesign: \
+            -s -k "$KEYCHAIN_PASS" build.keychain
+          rm /tmp/cert.p12
+
+      - name: Sign .app bundle
+        if: ${{ secrets.MACOS_CERT_P12 != '' }}
+        run: |
+          APP="build/macos/Build/Products/Release/selecto.app"
+          codesign --force --deep \
+            --sign "${{ secrets.MACOS_CERT_IDENTITY }}" \
+            --options runtime \
+            --entitlements macos/Runner/Release.entitlements \
+            "$APP"
+          # 서명 검증
+          codesign --verify --deep --strict --verbose=2 "$APP"
+
+      # 노터라이즈: Gatekeeper 통과에 필수. APPLE_ID 시크릿이 있을 때만 실행.
+      # (서명은 했지만 노터라이즈 없이 배포하면 macOS 가 차단)
+      - name: Notarize and staple
+        if: ${{ secrets.APPLE_ID != '' }}
+        run: |
+          APP="build/macos/Build/Products/Release/selecto.app"
+
+          # zip 으로 묶어서 notarytool 에 제출
+          ditto -c -k --keepParent "$APP" /tmp/selecto-notarize.zip
+          xcrun notarytool submit /tmp/selecto-notarize.zip \
+            --apple-id "${{ secrets.APPLE_ID }}" \
+            --password "${{ secrets.APPLE_APP_PASSWORD }}" \
+            --team-id "${{ secrets.APPLE_TEAM_ID }}" \
+            --wait
+          rm /tmp/selecto-notarize.zip
+
+          # 노터라이즈 티켓을 .app 에 스테이플 → 오프라인에서도 Gatekeeper 통과
+          xcrun stapler staple "$APP"
+
+      - name: Package DMG
+        run: |
+          APP="build/macos/Build/Products/Release/selecto.app"
+          DMG_DIR="macos/packaging/dmg"
+          VERSION=$(grep '^version:' pubspec.yaml | sed 's/version: //' | cut -d'+' -f1)
+          mkdir -p dist
+
+          # appdmg 는 config 파일 기준 상대 경로로 .app 을 찾으므로
+          # make_config.yaml 옆에 스테이징
+          cp -R "$APP" "$DMG_DIR/selecto.app"
+          npx appdmg "$DMG_DIR/make_config.yaml" \
+            "dist/selecto-${VERSION}-macos.dmg"
+          rm -rf "$DMG_DIR/selecto.app"
+
+      - name: Cleanup keychain
+        if: always()
+        run: |
+          security delete-keychain build.keychain 2>/dev/null || true
 
       - name: Upload artifact
         uses: actions/upload-artifact@v6
