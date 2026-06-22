@@ -16,6 +16,7 @@ class GalleryController extends _$GalleryController {
   final _log = Logger('GalleryController');
   StreamSubscription<void>? _scanSub;
   StreamSubscription<void>? _analyzeSub;
+  Timer? _flushTimer;
 
   @override
   GalleryState build() {
@@ -34,6 +35,7 @@ class GalleryController extends _$GalleryController {
     ref.onDispose(() {
       _scanSub?.cancel();
       _analyzeSub?.cancel();
+      _flushTimer?.cancel();
     });
     return const GalleryState();
   }
@@ -69,23 +71,38 @@ class GalleryController extends _$GalleryController {
       _log.fine('directory discovery failed (non-fatal): $e');
     }
 
-    // Phase 2: Full scan with preview extraction. Batched in groups of 32
-    // to avoid O(n²) rebuilds for large directories.
+    // Phase 2: Full scan with preview extraction.
+    //
+    // Flushing strategy: time-based (100 ms periodic timer) rather than
+    // count-based (every 32 photos). This lets each photo appear on-screen
+    // within ≤100 ms of extraction completing — imperceptible as a delay for
+    // slow RAW files (2-5 s each) while still batching fast JPEG scans into
+    // ~10-20 rebuilds instead of one per file (avoids O(n²) rebuild cost).
     final scan = ref.read(scanDirectoryProvider);
     final buffer = <Photo>[];
 
+    _flushTimer?.cancel();
+    _flushTimer = Timer.periodic(const Duration(milliseconds: 100), (_) {
+      if (buffer.isNotEmpty) {
+        state = state.copyWith(photos: List.unmodifiable(buffer));
+      }
+    });
+
     _scanSub = scan(rootPath).listen(
-      (photo) {
-        buffer.add(photo);
-        if (buffer.length % 32 == 0) {
-          state = state.copyWith(photos: List.unmodifiable(buffer));
-        }
-      },
+      buffer.add,
       onError: (Object e, StackTrace st) {
+        _flushTimer?.cancel();
         _log.warning('scan failed', e, st);
-        state = state.copyWith(scanning: false, error: e, errorStack: st);
+        state = state.copyWith(
+          photos: List.unmodifiable(buffer),
+          scanning: false,
+          error: e,
+          errorStack: st,
+          clearLoadingDirs: true,
+        );
       },
       onDone: () {
+        _flushTimer?.cancel();
         state = state.copyWith(
           photos: List.unmodifiable(buffer),
           scanning: false,
