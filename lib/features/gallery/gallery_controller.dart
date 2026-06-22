@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:isolate';
 
 import 'package:logging/logging.dart';
 import 'package:path/path.dart' as p;
@@ -8,6 +9,7 @@ import '../../app/providers.dart';
 import '../../domain/entities/analysis_result.dart';
 import '../../domain/entities/photo.dart';
 import 'gallery_state.dart';
+import 'similar_groups.dart';
 
 part 'gallery_controller.g.dart';
 
@@ -52,6 +54,9 @@ class GalleryController extends _$GalleryController {
       // A new root invalidates any subfolder view from the previous one.
       clearSubfolderFilter: true,
       bestShotsOnly: false,
+      // …and any similarity grouping computed for the old folder.
+      clearGroupFilter: true,
+      similarGroups: SimilarGroups.empty,
     );
 
     final scan = ref.read(scanDirectoryProvider);
@@ -252,6 +257,7 @@ class GalleryController extends _$GalleryController {
       subfolderFilter: dir,
       clearSubfolderFilter: dir == null,
       bestShotsOnly: false,
+      clearGroupFilter: true,
       selectedIndex: -1,
       selectionAnchor: 0,
       picked: const {},
@@ -266,10 +272,43 @@ class GalleryController extends _$GalleryController {
     state = state.copyWith(
       bestShotsOnly: true,
       clearSubfolderFilter: true,
+      clearGroupFilter: true,
       selectedIndex: -1,
       selectionAnchor: 0,
       picked: const {},
     );
+  }
+
+  /// Show only the photos in the similar-photo cluster [groupName]
+  /// (e.g. `group-0`), or pass null to clear the group filter. Like the other
+  /// filters, a pure view change that clears the selection and parks the
+  /// cursor; on-disk paths and the folder label are untouched.
+  void setGroupFilter(String? groupName) {
+    state = state.copyWith(
+      groupFilter: groupName,
+      clearGroupFilter: groupName == null,
+      bestShotsOnly: false,
+      clearSubfolderFilter: true,
+      selectedIndex: -1,
+      selectionAnchor: 0,
+      picked: const {},
+    );
+  }
+
+  /// Cluster the currently-scanned photos into visually-similar groups
+  /// (`group-0`, …) on a worker isolate, then expose them in the side panel.
+  /// Re-running replaces any previous grouping.
+  Future<void> groupSimilar() async {
+    if (state.photos.isEmpty || state.grouping) return;
+    state = state.copyWith(grouping: true, clearError: true);
+    final photos = state.photos;
+    try {
+      final groups = await Isolate.run(() => computeSimilarGroups(photos));
+      state = state.copyWith(similarGroups: groups, grouping: false);
+    } catch (e, st) {
+      _log.warning('similar grouping failed', e, st);
+      state = state.copyWith(grouping: false, error: e, errorStack: st);
+    }
   }
 
   /// Park the cursor on the first visible photo if it's currently unfocused

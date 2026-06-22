@@ -123,6 +123,7 @@ class _GalleryAppBar extends ConsumerWidget implements PreferredSizeWidget {
           hasPhotos: s.photos.isNotEmpty,
           analyzing: s.analyzing,
           hasResults: s.results.isNotEmpty,
+          grouping: s.grouping,
         )));
     final ctrl = ref.read(galleryControllerProvider.notifier);
     final t = ref.watch(stringsProvider);
@@ -170,6 +171,17 @@ class _GalleryAppBar extends ConsumerWidget implements PreferredSizeWidget {
           tooltip: t.tr('selectBest'),
           onPressed: !s.hasResults ? null : ctrl.selectBest,
           icon: const Icon(Icons.star),
+        ),
+        IconButton(
+          tooltip: t.tr('groupSimilar'),
+          onPressed: !s.hasPhotos || s.grouping ? null : ctrl.groupSimilar,
+          icon: s.grouping
+              ? const SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Icon(Icons.burst_mode_outlined),
         ),
         Builder(
           builder: (context) => IconButton(
@@ -439,9 +451,13 @@ class _SubfolderPanel extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final subfolders =
         ref.watch(galleryControllerProvider.select((s) => s.subfolders));
-    // Only worth showing when there's more than one navigable (photo-holding)
-    // directory to switch between.
-    final visible = subfolders.where((e) => e.count > 0).length > 1;
+    final hasGroups = ref.watch(
+      galleryControllerProvider.select((s) => s.similarGroups.groups.isNotEmpty),
+    );
+    // Worth showing when there's more than one navigable directory to switch
+    // between, or once similarity groups exist.
+    final visible =
+        subfolders.where((e) => e.count > 0).length > 1 || hasGroups;
 
     return AnimatedSize(
       duration: const Duration(milliseconds: 220),
@@ -470,6 +486,10 @@ class _SubfolderList extends ConsumerWidget {
         ref.watch(galleryControllerProvider.select((s) => s.subfolderFilter));
     final bestShotsOnly =
         ref.watch(galleryControllerProvider.select((s) => s.bestShotsOnly));
+    final groupFilter =
+        ref.watch(galleryControllerProvider.select((s) => s.groupFilter));
+    final groups = ref.watch(
+        galleryControllerProvider.select((s) => s.similarGroups.groups));
     final totalCount =
         ref.watch(galleryControllerProvider.select((s) => s.photos.length));
     final ctrl = ref.read(galleryControllerProvider.notifier);
@@ -479,6 +499,7 @@ class _SubfolderList extends ConsumerWidget {
     final bestShotsCount = subfolders
         .where((e) => e.isBestShots)
         .fold<int>(0, (sum, e) => sum + e.count);
+    final noFilter = filter == null && !bestShotsOnly && groupFilter == null;
 
     return Container(
       width: 220,
@@ -491,7 +512,7 @@ class _SubfolderList extends ConsumerWidget {
             label: t.tr('allPhotos'),
             count: totalCount,
             depth: 0,
-            selected: filter == null && !bestShotsOnly,
+            selected: noFilter,
             onTap: () => ctrl.setSubfolderFilter(null),
           ),
           if (hasBestShots)
@@ -522,10 +543,47 @@ class _SubfolderList extends ConsumerWidget {
               // shown only to make the nesting clear.
               count: sf.count > 0 ? sf.count : null,
               depth: sf.depth,
-              selected: !bestShotsOnly && filter == sf.dir,
+              selected: noFilter ? false : (!bestShotsOnly && filter == sf.dir),
               onTap: sf.count > 0 ? () => ctrl.setSubfolderFilter(sf.dir) : null,
             ),
+          // Similar-photo clusters (group-0, group-1, …) from "Group similar".
+          if (groups.isNotEmpty) ...[
+            const Divider(height: 1),
+            _SubfolderSectionLabel(text: t.tr('similarGroups')),
+            for (final g in groups)
+              _SubfolderItem(
+                icon: Icons.burst_mode_outlined,
+                label: g.name,
+                count: g.count,
+                depth: 0,
+                selected: groupFilter == g.name,
+                onTap: () => ctrl.setGroupFilter(g.name),
+              ),
+          ],
         ],
+      ),
+    );
+  }
+}
+
+/// Small dim caption that headers a section in the side panel.
+class _SubfolderSectionLabel extends StatelessWidget {
+  const _SubfolderSectionLabel({required this.text});
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
+      child: Text(
+        text.toUpperCase(),
+        style: TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
+          letterSpacing: 0.6,
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
+        ),
       ),
     );
   }
