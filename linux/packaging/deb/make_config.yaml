@@ -6,8 +6,8 @@
 display_name: Selecto
 package_name: selecto
 maintainer:
-  name: NM Monster
-  email: mousedoc@nm-monster.com
+  name: fish-ken
+  email: sangyun3631@gmail.com
 section: graphics
 priority: optional
 # Approximate installed size in KB (Debian Installed-Size control field).

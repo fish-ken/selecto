@@ -101,7 +101,7 @@ flutter:
 # ---------------------------------------------------------------------------
 msix_config:
   display_name: Selecto
-  publisher_display_name: NM Monster
+  publisher_display_name: fish-ken
   identity_name: com.nmmonster.selecto
   msix_version: 1.0.0.0
   description: AI-powered photo culling for desktop
@@ -117,7 +117,7 @@ msix_config:
   # --- code signing for distribution (uncomment + fill in) ---
   # certificate_path: windows\selecto.pfx
   # certificate_password: <password>
-  # publisher: CN=NM Monster, O=NM Monster, C=KR   # must match the cert subject
+  # publisher: CN=fish-ken, O=fish-ken, C=KR   # must match the cert subject
 
 # ---------------------------------------------------------------------------
 # App icon generation (flutter_launcher_icons).
