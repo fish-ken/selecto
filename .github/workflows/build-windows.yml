@@ -48,3 +48,4 @@ jobs:
           name: selecto-windows-msix
           path: dist/*.msix
           if-no-files-found: error
+          retention-days: 7

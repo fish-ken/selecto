@@ -66,3 +66,4 @@ jobs:
             dist/**/*.deb
             dist/**/*.AppImage
           if-no-files-found: error
+          retention-days: 7
