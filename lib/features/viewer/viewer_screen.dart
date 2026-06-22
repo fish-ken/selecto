@@ -100,9 +100,9 @@ class _ViewerScreenState extends ConsumerState<ViewerScreen> {
               onToggleInfo: _toggleInfo,
             ),
             Expanded(
-              child: Row(
+              child: Stack(
                 children: [
-                  Expanded(
+                  Positioned.fill(
                     // No key: keep one _ZoomableImage alive across photo
                     // changes so the Image's `gaplessPlayback` can bridge them
                     // — the previous photo stays on screen until the next
@@ -116,15 +116,20 @@ class _ViewerScreenState extends ConsumerState<ViewerScreen> {
                     ),
                   ),
                   if (infoVisible)
-                    InfoPanel(
-                      // Re-key per photo so the panel reloads its EXIF +
-                      // histogram for the newly shown image.
-                      key: ValueKey(photo.decodablePath),
-                      imagePath: photo.decodablePath,
-                      // Original path (the RAW for ARW/NEF/…) so EXIF reads
-                      // from the file that actually carries it.
-                      exifPath: photo.path,
-                      fileBytes: photo.byteSize,
+                    Positioned(
+                      top: 0,
+                      right: 0,
+                      bottom: 0,
+                      child: InfoPanel(
+                        // Re-key per photo so the panel reloads its EXIF +
+                        // histogram for the newly shown image.
+                        key: ValueKey(photo.decodablePath),
+                        imagePath: photo.decodablePath,
+                        // Original path (the RAW for ARW/NEF/…) so EXIF reads
+                        // from the file that actually carries it.
+                        exifPath: photo.path,
+                        fileBytes: photo.byteSize,
+                      ),
                     ),
                 ],
               ),
