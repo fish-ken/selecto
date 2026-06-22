@@ -2,7 +2,6 @@ import 'package:path/path.dart' as p;
 
 import '../../domain/entities/analysis_result.dart';
 import '../../domain/entities/photo.dart';
-import 'similar_groups.dart';
 
 /// One row in the gallery's subfolder side-panel tree.
 class SubfolderEntry {
@@ -43,9 +42,6 @@ class GalleryState {
     this.subfolders = const [],
     this.subfolderFilter,
     this.bestShotsOnly = false,
-    this.similarGroups = SimilarGroups.empty,
-    this.groupFilter,
-    this.grouping = false,
     this.selectedIndex = 0,
     this.selectionAnchor = 0,
     this.picked = const {},
@@ -81,17 +77,6 @@ class GalleryState {
   /// When true, the view shows every photo inside any `BestShots` folder
   /// across all subfolders. Mutually exclusive with [subfolderFilter].
   final bool bestShotsOnly;
-
-  /// Similar-photo clusters (`group-0`, …) from the last grouping pass.
-  /// Empty until the user runs "group similar".
-  final SimilarGroups similarGroups;
-
-  /// When non-null, only photos in the group with this name are visible.
-  /// Mutually exclusive with [subfolderFilter] / [bestShotsOnly].
-  final String? groupFilter;
-
-  /// True while the similarity pass is running (drives the AppBar spinner).
-  final bool grouping;
 
   /// Index of the cursor photo, into [visiblePhotos].
   final int selectedIndex;
@@ -133,30 +118,20 @@ class GalleryState {
     String? subfolderFilter,
     bool clearSubfolderFilter = false,
     bool? bestShotsOnly,
-    SimilarGroups? similarGroups,
-    String? groupFilter,
-    bool clearGroupFilter = false,
-    bool? grouping,
   }) {
     final nextPhotos = photos ?? this.photos;
     final nextRoot = rootPath ?? this.rootPath;
     final nextFilter =
         clearSubfolderFilter ? null : (subfolderFilter ?? this.subfolderFilter);
     final nextBest = bestShotsOnly ?? this.bestShotsOnly;
-    final nextGroups = similarGroups ?? this.similarGroups;
-    final nextGroupFilter =
-        clearGroupFilter ? null : (groupFilter ?? this.groupFilter);
 
     // Only recompute the derived lists when their inputs actually change —
     // a plain cursor/pick update shouldn't refilter thousands of photos.
     final photosChanged = photos != null;
     final modeChanged = nextFilter != this.subfolderFilter ||
-        nextBest != this.bestShotsOnly ||
-        nextGroupFilter != this.groupFilter ||
-        !identical(nextGroups, this.similarGroups);
+        nextBest != this.bestShotsOnly;
     final nextVisible = (photosChanged || modeChanged)
-        ? _computeVisible(nextPhotos, nextFilter, nextBest, nextGroupFilter,
-            nextGroups)
+        ? _computeVisible(nextPhotos, nextFilter, nextBest)
         : visiblePhotos;
     final nextSubfolders = photosChanged
         ? _computeSubfolders(nextPhotos, nextRoot)
@@ -169,9 +144,6 @@ class GalleryState {
       subfolders: nextSubfolders,
       subfolderFilter: nextFilter,
       bestShotsOnly: nextBest,
-      similarGroups: nextGroups,
-      groupFilter: nextGroupFilter,
-      grouping: grouping ?? this.grouping,
       selectedIndex: selectedIndex ?? this.selectedIndex,
       selectionAnchor: selectionAnchor ?? this.selectionAnchor,
       picked: picked ?? this.picked,
@@ -183,22 +155,14 @@ class GalleryState {
     );
   }
 
-  /// The visible subset for the current view mode. A group filter wins over
-  /// [bestOnly] (every photo in any BestShots folder), which wins over
-  /// [filter] (one exact directory); with none, returns [photos] unchanged.
+  /// The visible subset for the current view mode. [bestOnly] (every photo in
+  /// any BestShots folder) wins over [filter] (one exact directory); with
+  /// neither, returns [photos] unchanged.
   static List<Photo> _computeVisible(
     List<Photo> photos,
     String? filter,
     bool bestOnly,
-    String? groupFilter,
-    SimilarGroups groups,
   ) {
-    if (groupFilter != null) {
-      return List.unmodifiable([
-        for (final ph in photos)
-          if (groups.groupOf[ph.path] == groupFilter) ph,
-      ]);
-    }
     if (bestOnly) {
       return List.unmodifiable([
         for (final ph in photos)
