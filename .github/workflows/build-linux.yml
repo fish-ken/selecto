@@ -19,6 +19,8 @@ jobs:
   build:
     name: Build Linux .deb + .AppImage
     runs-on: ubuntu-latest
+    env:
+      HAS_GPG: ${{ secrets.LINUX_GPG_KEY != '' }}
     steps:
       - name: Checkout (LFS 모델 포함)
         uses: actions/checkout@v5
@@ -73,7 +75,7 @@ jobs:
       #        LINUX_GPG_KEY        = gpg.b64 내용
       #        LINUX_GPG_PASSPHRASE = GPG 비밀번호
       - name: Sign .deb package
-        if: ${{ secrets.LINUX_GPG_KEY != '' }}
+        if: env.HAS_GPG == 'true'
         env:
           LINUX_GPG_KEY: ${{ secrets.LINUX_GPG_KEY }}
           LINUX_GPG_PASSPHRASE: ${{ secrets.LINUX_GPG_PASSPHRASE }}

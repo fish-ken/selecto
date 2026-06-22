@@ -25,6 +25,9 @@ jobs:
   build:
     name: Build macOS .dmg
     runs-on: macos-latest
+    env:
+      HAS_CERT: ${{ secrets.MACOS_CERT_P12 != '' }}
+      HAS_NOTARIZE: ${{ secrets.APPLE_ID != '' }}
     steps:
       - name: Checkout (LFS 모델 포함)
         uses: actions/checkout@v5
@@ -64,7 +67,7 @@ jobs:
       #        APPLE_APP_PASSWORD   = 앱 전용 비밀번호 (appleid.apple.com 에서 생성)
       #        APPLE_TEAM_ID        = Apple Developer 팀 ID (10자리 영숫자)
       - name: Import signing certificate
-        if: ${{ secrets.MACOS_CERT_P12 != '' }}
+        if: env.HAS_CERT == 'true'
         env:
           MACOS_CERT_P12: ${{ secrets.MACOS_CERT_P12 }}
           MACOS_CERT_PASSWORD: ${{ secrets.MACOS_CERT_PASSWORD }}
@@ -89,7 +92,7 @@ jobs:
           rm /tmp/cert.p12
 
       - name: Sign .app bundle
-        if: ${{ secrets.MACOS_CERT_P12 != '' }}
+        if: env.HAS_CERT == 'true'
         run: |
           APP="build/macos/Build/Products/Release/selecto.app"
           codesign --force --deep \
@@ -103,7 +106,7 @@ jobs:
       # 노터라이즈: Gatekeeper 통과에 필수. APPLE_ID 시크릿이 있을 때만 실행.
       # (서명은 했지만 노터라이즈 없이 배포하면 macOS 가 차단)
       - name: Notarize and staple
-        if: ${{ secrets.APPLE_ID != '' }}
+        if: env.HAS_NOTARIZE == 'true'
         run: |
           APP="build/macos/Build/Products/Release/selecto.app"
 
