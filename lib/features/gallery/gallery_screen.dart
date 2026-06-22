@@ -196,14 +196,25 @@ class _GalleryAppBar extends ConsumerWidget implements PreferredSizeWidget {
 }
 
 /// Body — empty state vs. grid. Watches only what the body decision needs.
-class _GalleryBody extends ConsumerWidget {
+class _GalleryBody extends ConsumerStatefulWidget {
   const _GalleryBody({required this.scrollCtrl, required this.onPickDirectory});
 
   final ScrollController scrollCtrl;
   final VoidCallback onPickDirectory;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_GalleryBody> createState() => _GalleryBodyState();
+}
+
+class _GalleryBodyState extends ConsumerState<_GalleryBody> {
+  static const double _minPanelWidth = 120.0;
+  static const double _maxPanelWidth = 400.0;
+  static const double _defaultPanelWidth = 220.0;
+
+  double _panelWidth = _defaultPanelWidth;
+
+  @override
+  Widget build(BuildContext context) {
     final hasPhotos = ref.watch(
       galleryControllerProvider.select((s) => s.photos.isNotEmpty),
     );
@@ -212,16 +223,43 @@ class _GalleryBody extends ConsumerWidget {
       final scanning = ref.watch(
         galleryControllerProvider.select((s) => s.scanning),
       );
-      return _EmptyState(scanning: scanning, onPick: onPickDirectory);
+      return _EmptyState(scanning: scanning, onPick: widget.onPickDirectory);
     }
+
+    // Whether the subfolder panel will actually be visible (mirrors the
+    // logic in _SubfolderPanel so we can hide the drag handle too).
+    final subfolders =
+        ref.watch(galleryControllerProvider.select((s) => s.subfolders));
+    final hasGroups = ref.watch(
+      galleryControllerProvider.select((s) => s.similarGroups.groups.isNotEmpty),
+    );
+    final panelVisible =
+        subfolders.where((e) => e.count > 0).length > 1 || hasGroups;
 
     // Left: subfolder navigator (hides itself when there's nothing to
     // navigate). Right: the grid of the currently-visible photos.
     return Row(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const _SubfolderPanel(),
-        Expanded(child: _PhotoGrid(scrollCtrl: scrollCtrl)),
+        _SubfolderPanel(width: _panelWidth),
+        // Drag handle — only shown when the panel itself is visible.
+        if (panelVisible)
+          MouseRegion(
+            cursor: SystemMouseCursors.resizeColumn,
+            child: GestureDetector(
+              onPanUpdate: (details) {
+                setState(() {
+                  _panelWidth = (_panelWidth + details.delta.dx)
+                      .clamp(_minPanelWidth, _maxPanelWidth);
+                });
+              },
+              child: Container(
+                width: 6,
+                color: Colors.transparent,
+              ),
+            ),
+          ),
+        Expanded(child: _PhotoGrid(scrollCtrl: widget.scrollCtrl)),
       ],
     );
   }
@@ -445,7 +483,9 @@ class _FolderTitleButton extends StatelessWidget {
 /// its first build, so a folder whose subfolders are already known shows the
 /// panel in place; one discovered a few batches into the scan slides in.
 class _SubfolderPanel extends ConsumerWidget {
-  const _SubfolderPanel();
+  const _SubfolderPanel({required this.width});
+
+  final double width;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -464,7 +504,7 @@ class _SubfolderPanel extends ConsumerWidget {
       curve: Curves.easeOutCubic,
       alignment: Alignment.centerLeft,
       child: visible
-          ? _SubfolderList(subfolders: subfolders)
+          ? _SubfolderList(subfolders: subfolders, width: width)
           : const SizedBox.shrink(),
     );
   }
@@ -476,9 +516,10 @@ class _SubfolderPanel extends ConsumerWidget {
 /// No right border: the slightly raised background tone separates it from the
 /// grid (a hard divider line read as an out-of-place white seam).
 class _SubfolderList extends ConsumerWidget {
-  const _SubfolderList({required this.subfolders});
+  const _SubfolderList({required this.subfolders, required this.width});
 
   final List<SubfolderEntry> subfolders;
+  final double width;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -502,7 +543,7 @@ class _SubfolderList extends ConsumerWidget {
     final noFilter = filter == null && !bestShotsOnly && groupFilter == null;
 
     return Container(
-      width: 220,
+      width: width,
       color: Theme.of(context).colorScheme.surfaceContainerLow,
       child: ListView(
         padding: const EdgeInsets.symmetric(vertical: 4),
