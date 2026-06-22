@@ -132,7 +132,7 @@ jobs:
           # appdmg 는 config 파일 기준 상대 경로로 .app 을 찾으므로
           # make_config.yaml 옆에 스테이징
           cp -R "$APP" "$DMG_DIR/selecto.app"
-          npx appdmg "$DMG_DIR/make_config.yaml" \
+          npx appdmg "$DMG_DIR/make_config.json" \
             "dist/selecto-${VERSION}-macos.dmg"
           rm -rf "$DMG_DIR/selecto.app"
 
