@@ -27,20 +27,20 @@ class SettingsDialog extends ConsumerWidget {
             children: [
               Text(t.tr('language')),
               const SizedBox(width: 16),
-              DropdownButton<AppLocale>(
-                value: ref.watch(localeControllerProvider),
-                items: [
-                  for (final l in AppLocale.values)
-                    DropdownMenuItem<AppLocale>(
-                      value: l,
-                      child: Text(l.label),
-                    ),
-                ],
-                onChanged: (l) {
+              DropdownMenu<AppLocale>(
+                initialSelection: ref.watch(localeControllerProvider),
+                onSelected: (l) {
                   if (l != null) {
                     ref.read(localeControllerProvider.notifier).set(l);
                   }
                 },
+                dropdownMenuEntries: [
+                  for (final l in AppLocale.values)
+                    DropdownMenuEntry<AppLocale>(
+                      value: l,
+                      label: l.label,
+                    ),
+                ],
               ),
             ],
           ),
