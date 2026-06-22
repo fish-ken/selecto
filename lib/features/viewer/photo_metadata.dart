@@ -55,7 +55,30 @@ Future<PhotoMetadata> loadPhotoMetadata(
   if (ep != imagePath) {
     // Read the whole original (RAW headers can reference EXIF values past the
     // first chunk). One-time cost when the panel opens for this photo.
-    tags = await _readExifTags(await File(ep).readAsBytes());
+    final rawBytes = await File(ep).readAsBytes();
+    // Pre-process vendor-specific RAW formats that the exif package cannot
+    // parse directly:
+    //   • CR3 (Canon ISOBMFF): EXIF lives in two separate TIFF boxes —
+    //     CMT1 (IFD0: Make/Model/DateTime) and CMT2 (EXIF sub-IFD:
+    //     ExposureTime/FNumber/ISO/FocalLength). Neither box contains a link
+    //     to the other, so we read them separately and merge the results.
+    //   • ORF (Olympus/OM System): TIFF-based but uses the non-standard magic
+    //     bytes 'IIRO' (0x49 0x49 0x52 0x4F) instead of 'II*\x00' — patch the
+    //     two magic bytes so the exif package treats it as a regular TIFF.
+    final blobs = _extractExifBlobs(rawBytes);
+    if (blobs.length == 1) {
+      tags = await _readExifTags(blobs[0]);
+    } else if (blobs.length > 1) {
+      // CR3: merge tags from all blobs; earlier blobs win on key conflicts so
+      // that IFD0 (CMT1) fields like 'Image Make' take priority.
+      final merged = <String, IfdTag>{};
+      for (final blob in blobs.reversed) {
+        merged.addAll(await _readExifTags(blob));
+      }
+      tags = merged;
+    } else {
+      tags = await _readExifTags(rawBytes);
+    }
   }
   // Fall back to the decodable image's EXIF when the original yielded no
   // usable shooting EXIF — plain JPEGs (where ep == imagePath), RAW formats
@@ -72,6 +95,75 @@ Future<PhotoMetadata> loadPhotoMetadata(
 // EXIF
 // ---------------------------------------------------------------------------
 
+/// Extracts parseable EXIF/TIFF blobs from a RAW file byte buffer.
+///
+/// Returns a list of [Uint8List] blobs that can each be passed directly to
+/// [readExifFromBytes].  For most formats the list has exactly one entry (the
+/// original or a lightly patched copy).  Canon CR3 is the exception: it
+/// returns two blobs — CMT1 (IFD0: Make/Model) followed by CMT2 (EXIF
+/// sub-IFD: shooting data) — because the two IFDs live in separate ISOBMFF
+/// boxes with no cross-reference between them.
+///
+/// Returns an empty list when the format is already handled by [readExifFromBytes]
+/// without any pre-processing (e.g. standard TIFF, JPEG with APP1).
+List<Uint8List> _extractExifBlobs(Uint8List bytes) {
+  if (bytes.length < 8) return const [];
+
+  // ---- Canon CR3 (ISOBMFF / MP4-box container) ----
+  // CR3 starts with an 'ftyp' box (bytes 4-7 == 'ftyp').  The exif package
+  // does not understand ISOBMFF at all.  Canon embeds EXIF in two TIFF boxes:
+  //   CMT1 → IFD0 tags: Make (0x010F), Model (0x0110), DateTime (0x0132) …
+  //   CMT2 → EXIF sub-IFD tags: ExposureTime, FNumber, ISO, FocalLength …
+  // Neither box contains a pointer to the other, so both must be read and
+  // merged.  Both are valid standard-TIFF streams (II*\x00 magic).
+  // The boxes live in the moov header section, well within the first 64 KB.
+  if (bytes[4] == 0x66 && bytes[5] == 0x74 &&
+      bytes[6] == 0x79 && bytes[7] == 0x70) {
+    final blobs = <Uint8List>[];
+    final searchEnd = bytes.length < 65536 ? bytes.length - 8 : 65536;
+    for (var i = 0; i < searchEnd; i++) {
+      // Scan for 'CMT1' (43 4D 54 31) or 'CMT2' (43 4D 54 32).
+      if (bytes[i] == 0x43 && bytes[i + 1] == 0x4D && bytes[i + 2] == 0x54 &&
+          (bytes[i + 3] == 0x31 || bytes[i + 3] == 0x32)) {
+        if (i < 4) continue;
+        final boxStart = i - 4;
+        final s0 = bytes[boxStart], s1 = bytes[boxStart + 1],
+              s2 = bytes[boxStart + 2], s3 = bytes[boxStart + 3];
+        final boxSize = (s0 << 24) | (s1 << 16) | (s2 << 8) | s3;
+        if (boxSize < 16 || boxStart + boxSize > bytes.length) continue;
+        final dataStart = boxStart + 8;
+        final dataLen = boxSize - 8;
+        if (dataLen < 8) continue;
+        // Validate TIFF magic.
+        final m0 = bytes[dataStart], m1 = bytes[dataStart + 1],
+              m2 = bytes[dataStart + 2], m3 = bytes[dataStart + 3];
+        final isLeTiff = m0 == 0x49 && m1 == 0x49 && m2 == 0x2A && m3 == 0x00;
+        final isBeTiff = m0 == 0x4D && m1 == 0x4D && m2 == 0x00 && m3 == 0x2A;
+        if (!isLeTiff && !isBeTiff) continue;
+        blobs.add(Uint8List.sublistView(bytes, dataStart, dataStart + dataLen));
+      }
+    }
+    return blobs; // empty list → caller falls back to readExifFromBytes(rawBytes)
+  }
+
+  // ---- Olympus / OM System ORF ----
+  // ORF is TIFF-based but uses the non-standard magic 'IIRO' (49 49 52 4F)
+  // instead of the standard 'II*\x00' (49 49 2A 00).  The exif package's
+  // _isTiff guard rejects any header that doesn't match 'II*\x00' or
+  // 'MM\x00*', so ORF files silently produce 0 tags.  Patching bytes [2:3]
+  // to 0x2A 0x00 makes it look like a standard little-endian TIFF without
+  // altering any IFD offsets, since those are computed from byte 0 onward.
+  if (bytes[0] == 0x49 && bytes[1] == 0x49 &&
+      bytes[2] == 0x52 && bytes[3] == 0x4F) {
+    final patched = Uint8List.fromList(bytes); // copy — never mutate caller's buffer
+    patched[2] = 0x2A;
+    patched[3] = 0x00;
+    return [patched];
+  }
+
+  return const []; // standard format — no pre-processing needed
+}
+
 Future<Map<String, IfdTag>> _readExifTags(Uint8List bytes) async {
   try {
     return await readExifFromBytes(bytes);
@@ -82,12 +174,19 @@ Future<Map<String, IfdTag>> _readExifTags(Uint8List bytes) async {
 
 /// Whether [tags] carry actual shooting metadata (vs. just colorspace/size).
 /// Used to decide whether to fall back to another EXIF source.
+///
+/// Checks both 'EXIF ...' (from a proper EXIF sub-IFD) and 'Image ...' (from
+/// IFD0 directly, as seen in Canon CR3's CMT2 TIFF blob where shooting tags
+/// live in IFD0 without an ExifOffset pointer).
 bool _hasShootingExif(Map<String, IfdTag> tags) =>
     tags.containsKey('Image Make') ||
     tags.containsKey('Image Model') ||
     tags.containsKey('EXIF FNumber') ||
+    tags.containsKey('Image FNumber') ||
     tags.containsKey('EXIF ExposureTime') ||
-    tags.containsKey('EXIF DateTimeOriginal');
+    tags.containsKey('Image ExposureTime') ||
+    tags.containsKey('EXIF DateTimeOriginal') ||
+    tags.containsKey('Image DateTimeOriginal');
 
 List<ExifRow> _rowsFromTags(Map<String, IfdTag> tags, {int? fileBytes}) {
   final rows = <ExifRow>[];
@@ -127,27 +226,31 @@ String? _camera(Map<String, IfdTag> t) {
 }
 
 String? _aperture(Map<String, IfdTag> t) {
-  final v = _num(t['EXIF FNumber']) ?? _num(t['EXIF ApertureValue']);
+  // 'EXIF FNumber' — from a proper EXIF sub-IFD (most RAW formats, JPEG).
+  // 'Image FNumber' — from IFD0 directly (CR3 CMT2 blob, no ExifOffset tag).
+  final v = _num(t['EXIF FNumber']) ?? _num(t['Image FNumber']) ??
+      _num(t['EXIF ApertureValue']) ?? _num(t['Image ApertureValue']);
   return v == null ? null : 'f/${_trim(v)}';
 }
 
 String? _shutter(Map<String, IfdTag> t) {
-  final v = _num(t['EXIF ExposureTime']);
+  final v = _num(t['EXIF ExposureTime']) ?? _num(t['Image ExposureTime']);
   if (v == null || v <= 0) return null;
   if (v >= 1) return '${_trim(v)}s';
   return '1/${(1 / v).round()}s';
 }
 
 String? _iso(Map<String, IfdTag> t) {
-  final v = _num(t['EXIF ISOSpeedRatings']) ?? _num(t['EXIF PhotographicSensitivity']);
+  final v = _num(t['EXIF ISOSpeedRatings']) ?? _num(t['Image ISOSpeedRatings']) ??
+      _num(t['EXIF PhotographicSensitivity']) ?? _num(t['Image PhotographicSensitivity']);
   return v?.round().toString();
 }
 
 String? _focal(Map<String, IfdTag> t) {
-  final v = _num(t['EXIF FocalLength']);
+  final v = _num(t['EXIF FocalLength']) ?? _num(t['Image FocalLength']);
   if (v == null) return null;
   final mm = '${_trim(v)}mm';
-  final eq = _num(t['EXIF FocalLengthIn35mmFilm']);
+  final eq = _num(t['EXIF FocalLengthIn35mmFilm']) ?? _num(t['Image FocalLengthIn35mmFilm']);
   if (eq != null && eq > 0 && eq.round() != v.round()) {
     return '$mm (≈${eq.round()}mm)';
   }
@@ -155,7 +258,9 @@ String? _focal(Map<String, IfdTag> t) {
 }
 
 String? _date(Map<String, IfdTag> t) {
-  final s = _printable(t['EXIF DateTimeOriginal']) ?? _printable(t['Image DateTime']);
+  final s = _printable(t['EXIF DateTimeOriginal']) ??
+      _printable(t['Image DateTimeOriginal']) ??
+      _printable(t['Image DateTime']);
   if (s == null) return null;
   // EXIF stores "YYYY:MM:DD HH:MM:SS"; show the date part with dashes.
   final parts = s.split(' ');
