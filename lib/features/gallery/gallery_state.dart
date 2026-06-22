@@ -11,6 +11,7 @@ class SubfolderEntry {
     required this.depth,
     required this.count,
     required this.isBestShots,
+    this.isLoading = false,
   });
 
   /// Absolute directory path — the value stored in
@@ -31,6 +32,11 @@ class SubfolderEntry {
 
   /// Whether this directory is itself a `BestShots` folder (gets a star).
   final bool isBestShots;
+
+  /// True while the scan is still running for this directory — RAW preview
+  /// extraction for files here may not have completed yet. Cleared when the
+  /// full scan finishes.
+  final bool isLoading;
 }
 
 /// Immutable snapshot of the gallery for one render.
@@ -50,6 +56,7 @@ class GalleryState {
     this.analyzing = false,
     this.error,
     this.errorStack,
+    this.loadingDirs = const {},
   });
 
   final String? rootPath;
@@ -99,6 +106,12 @@ class GalleryState {
   /// "Copy Log" button to put a useful, paste-able report on the clipboard.
   final StackTrace? errorStack;
 
+  /// Directories reported by the fast pre-scan that still have pending RAW
+  /// extraction. Populated immediately after [discoverDirectories] returns
+  /// and cleared entirely when the full scan stream completes. Used to show
+  /// per-folder loading indicators in the side panel before photos arrive.
+  final Set<String> loadingDirs;
+
   Photo? get currentPhoto => visiblePhotos.isEmpty
       ? null
       : visiblePhotos[selectedIndex.clamp(0, visiblePhotos.length - 1)];
@@ -118,23 +131,28 @@ class GalleryState {
     String? subfolderFilter,
     bool clearSubfolderFilter = false,
     bool? bestShotsOnly,
+    Set<String>? loadingDirs,
+    bool clearLoadingDirs = false,
   }) {
     final nextPhotos = photos ?? this.photos;
     final nextRoot = rootPath ?? this.rootPath;
     final nextFilter =
         clearSubfolderFilter ? null : (subfolderFilter ?? this.subfolderFilter);
     final nextBest = bestShotsOnly ?? this.bestShotsOnly;
+    final nextLoadingDirs =
+        clearLoadingDirs ? const <String>{} : (loadingDirs ?? this.loadingDirs);
 
     // Only recompute the derived lists when their inputs actually change —
     // a plain cursor/pick update shouldn't refilter thousands of photos.
     final photosChanged = photos != null;
     final modeChanged = nextFilter != this.subfolderFilter ||
         nextBest != this.bestShotsOnly;
+    final loadingChanged = loadingDirs != null || clearLoadingDirs;
     final nextVisible = (photosChanged || modeChanged)
         ? _computeVisible(nextPhotos, nextFilter, nextBest)
         : visiblePhotos;
-    final nextSubfolders = photosChanged
-        ? _computeSubfolders(nextPhotos, nextRoot)
+    final nextSubfolders = (photosChanged || loadingChanged)
+        ? _computeSubfolders(nextPhotos, nextRoot, nextLoadingDirs)
         : subfolders;
 
     return GalleryState(
@@ -152,6 +170,7 @@ class GalleryState {
       analyzing: analyzing ?? this.analyzing,
       error: clearError ? null : (error ?? this.error),
       errorStack: clearError ? null : (errorStack ?? this.errorStack),
+      loadingDirs: nextLoadingDirs,
     );
   }
 
@@ -177,27 +196,31 @@ class GalleryState {
   }
 
   /// Builds the side-panel tree: every directory that directly contains
-  /// photos, plus the intermediate ancestors needed to show each one nested
-  /// under its parent (so e.g. `jpg/BestShots` sits below `jpg`). Entries are
-  /// in pre-order; [SubfolderEntry.depth] is normalized so the shallowest
-  /// shown directory is at indent 0.
+  /// photos (or is in [loadingDirs]), plus the intermediate ancestors needed
+  /// to show each one nested under its parent. Entries are in pre-order;
+  /// [SubfolderEntry.depth] is normalized so the shallowest shown directory
+  /// is at indent 0. Entries whose directory is in [loadingDirs] get
+  /// [SubfolderEntry.isLoading] = true so the UI can show a spinner.
   static List<SubfolderEntry> _computeSubfolders(
     List<Photo> photos,
     String? rootPath,
+    Set<String> loadingDirs,
   ) {
-    if (photos.isEmpty) return const [];
-
     final counts = <String, int>{};
     for (final ph in photos) {
       final dir = p.dirname(ph.path);
       counts[dir] = (counts[dir] ?? 0) + 1;
     }
 
-    // Photo directories + their ancestors strictly inside the root, so every
-    // listed child has its parent listed above it.
-    final dirs = <String>{...counts.keys};
+    // Seed set: directories with photos + directories still being scanned.
+    final seedDirs = <String>{...counts.keys, ...loadingDirs};
+    if (seedDirs.isEmpty) return const [];
+
+    // Add intermediate ancestors strictly inside the root so every listed
+    // child has its parent listed above it.
+    final dirs = <String>{...seedDirs};
     if (rootPath != null) {
-      for (final d in counts.keys) {
+      for (final d in seedDirs) {
         var parent = p.dirname(d);
         while (p.isWithin(rootPath, parent)) {
           dirs.add(parent);
@@ -234,6 +257,7 @@ class GalleryState {
           depth: rawDepth(dir) - minDepth,
           count: counts[dir] ?? 0,
           isBestShots: p.basename(dir).toLowerCase() == 'a-cut',
+          isLoading: loadingDirs.contains(dir),
         ),
     ]);
   }

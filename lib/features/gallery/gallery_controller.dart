@@ -52,15 +52,31 @@ class GalleryController extends _$GalleryController {
       // A new root invalidates any subfolder view from the previous one.
       clearSubfolderFilter: true,
       bestShotsOnly: false,
+      clearLoadingDirs: true,
     );
 
+    // Phase 1: Fast directory discovery — list which directories contain
+    // scannable files by extension only, no file reading. This populates the
+    // side panel with the full folder tree immediately so the user can see
+    // where their photos live even before RAW preview extraction begins.
+    try {
+      final repo = ref.read(photoRepositoryProvider);
+      final dirs = await repo.discoverDirectories(rootPath);
+      if (dirs.isNotEmpty) {
+        state = state.copyWith(loadingDirs: dirs.toSet());
+      }
+    } catch (e) {
+      _log.fine('directory discovery failed (non-fatal): $e');
+    }
+
+    // Phase 2: Full scan with preview extraction. Batched in groups of 32
+    // to avoid O(n²) rebuilds for large directories.
     final scan = ref.read(scanDirectoryProvider);
     final buffer = <Photo>[];
 
     _scanSub = scan(rootPath).listen(
       (photo) {
         buffer.add(photo);
-        // Flush in batches so we don't rebuild on every single file.
         if (buffer.length % 32 == 0) {
           state = state.copyWith(photos: List.unmodifiable(buffer));
         }
@@ -73,6 +89,8 @@ class GalleryController extends _$GalleryController {
         state = state.copyWith(
           photos: List.unmodifiable(buffer),
           scanning: false,
+          // All files extracted — clear loading indicators from every folder.
+          clearLoadingDirs: true,
         );
       },
     );

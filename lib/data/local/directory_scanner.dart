@@ -38,6 +38,34 @@ class DirectoryScanner {
     '.bmp',
   };
 
+  /// Quick pass over [rootPath]: returns every directory that directly
+  /// contains at least one scannable file, identified by extension only
+  /// (no file reads, no RAW preview extraction). Used to populate the
+  /// side-panel folder tree before the slow per-file scan begins so the
+  /// user sees the hierarchy immediately instead of waiting for the first
+  /// batch of photos.
+  Future<List<String>> discoverDirectories(String rootPath) async {
+    final root = Directory(rootPath);
+    if (!await root.exists()) return const [];
+
+    final dirs = <String>{};
+    final entities = root
+        .list(recursive: true, followLinks: false)
+        .handleError(
+          (Object e) => _log.fine('discover skip: $e'),
+          test: (e) => e is FileSystemException,
+        );
+
+    await for (final entity in entities) {
+      if (entity is! File) continue;
+      final ext = p.extension(entity.path).toLowerCase();
+      if (_decodableExts.contains(ext) || RawPreviewCache.isRaw(entity.path)) {
+        dirs.add(p.dirname(entity.path));
+      }
+    }
+    return dirs.toList();
+  }
+
   Stream<Photo> scan(String rootPath) async* {
     final root = Directory(rootPath);
     if (!await root.exists()) return;

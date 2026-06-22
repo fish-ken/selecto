@@ -203,11 +203,16 @@ class _GalleryBodyState extends ConsumerState<_GalleryBody> {
 
   @override
   Widget build(BuildContext context) {
-    final hasPhotos = ref.watch(
-      galleryControllerProvider.select((s) => s.photos.isNotEmpty),
+    // Show the main layout (panel + grid) as soon as we know which directories
+    // exist — even before photos have been extracted. This lets the folder tree
+    // appear immediately while RAW previews are still being generated.
+    final showLayout = ref.watch(
+      galleryControllerProvider.select(
+        (s) => s.photos.isNotEmpty || s.loadingDirs.isNotEmpty,
+      ),
     );
 
-    if (!hasPhotos) {
+    if (!showLayout) {
       final scanning = ref.watch(
         galleryControllerProvider.select((s) => s.scanning),
       );
@@ -218,7 +223,10 @@ class _GalleryBodyState extends ConsumerState<_GalleryBody> {
     // logic in _SubfolderPanel so we can hide the drag handle too).
     final subfolders =
         ref.watch(galleryControllerProvider.select((s) => s.subfolders));
-    final panelVisible = subfolders.where((e) => e.count > 0).length > 1;
+    // Show the panel (and drag handle) as soon as there are 2+ directory
+    // entries — including loading ones — so the tree is visible from the
+    // moment discovery finishes.
+    final panelVisible = subfolders.length > 1;
 
     // Left: subfolder navigator (hides itself when there's nothing to
     // navigate). Right: the grid of the currently-visible photos.
@@ -475,9 +483,9 @@ class _SubfolderPanel extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final subfolders =
         ref.watch(galleryControllerProvider.select((s) => s.subfolders));
-    // Worth showing when there's more than one navigable directory to switch
-    // between.
-    final visible = subfolders.where((e) => e.count > 0).length > 1;
+    // Show as soon as there are 2+ directory entries (including loading ones)
+    // so the folder tree is visible from the moment discovery finishes.
+    final visible = subfolders.length > 1;
 
     return AnimatedSize(
       duration: const Duration(milliseconds: 220),
@@ -509,6 +517,8 @@ class _SubfolderList extends ConsumerWidget {
         ref.watch(galleryControllerProvider.select((s) => s.bestShotsOnly));
     final totalCount =
         ref.watch(galleryControllerProvider.select((s) => s.photos.length));
+    final scanning =
+        ref.watch(galleryControllerProvider.select((s) => s.scanning));
     final ctrl = ref.read(galleryControllerProvider.notifier);
     final t = ref.watch(stringsProvider);
 
@@ -527,9 +537,10 @@ class _SubfolderList extends ConsumerWidget {
           _SubfolderItem(
             icon: Icons.photo_library_outlined,
             label: t.tr('allPhotos'),
-            count: totalCount,
+            count: totalCount > 0 ? totalCount : null,
             depth: 0,
             selected: noFilter,
+            isLoading: scanning,
             onTap: () => ctrl.setSubfolderFilter(null),
           ),
           if (hasBestShots)
@@ -561,6 +572,7 @@ class _SubfolderList extends ConsumerWidget {
               count: sf.count > 0 ? sf.count : null,
               depth: sf.depth,
               selected: noFilter ? false : (!bestShotsOnly && filter == sf.dir),
+              isLoading: sf.isLoading,
               onTap: sf.count > 0 ? () => ctrl.setSubfolderFilter(sf.dir) : null,
             ),
         ],
@@ -578,6 +590,7 @@ class _SubfolderItem extends StatelessWidget {
     this.count,
     this.iconColor,
     this.onTap,
+    this.isLoading = false,
   });
 
   final IconData icon;
@@ -596,6 +609,10 @@ class _SubfolderItem extends StatelessWidget {
 
   /// Tap handler; null makes the row a non-interactive header.
   final VoidCallback? onTap;
+
+  /// When true, shows a small spinner after the count to indicate that RAW
+  /// preview extraction is still in progress for this directory.
+  final bool isLoading;
 
   @override
   Widget build(BuildContext context) {
@@ -649,6 +666,17 @@ class _SubfolderItem extends StatelessWidget {
             Text(
               '$count',
               style: TextStyle(fontSize: 12, color: scheme.onSurfaceVariant),
+            ),
+          ],
+          if (isLoading) ...[
+            const SizedBox(width: 5),
+            SizedBox(
+              width: 10,
+              height: 10,
+              child: CircularProgressIndicator(
+                strokeWidth: 1.5,
+                color: scheme.onSurfaceVariant,
+              ),
             ),
           ],
         ],
