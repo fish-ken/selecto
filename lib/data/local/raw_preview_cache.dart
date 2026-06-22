@@ -101,7 +101,12 @@ class RawPreviewCache {
     required int size,
   }) async {
     final dir = await _ensureCacheDir();
-    final keyInput = '${rawFile.path}::${mtime.millisecondsSinceEpoch}::$size';
+    // v2: bumped when extraction logic changed (SOF0 preferred over SOF3
+    // lossless). Old v1 cache entries contain lossless JPEGs that Flutter
+    // cannot decode; the version prefix makes them orphans without deleting
+    // them proactively.
+    const cacheVersion = 'v2';
+    final keyInput = '$cacheVersion::${rawFile.path}::${mtime.millisecondsSinceEpoch}::$size';
     final hash = md5.convert(utf8.encode(keyInput)).toString();
     final cachePath = p.join(dir.path, '$hash.jpg');
     final cacheFile = File(cachePath);
