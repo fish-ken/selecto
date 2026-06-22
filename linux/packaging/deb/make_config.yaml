@@ -10,6 +10,10 @@ maintainer:
   email: mousedoc@nm-monster.com
 section: graphics
 priority: optional
+# Approximate installed size in KB (Debian Installed-Size control field).
+# Required by flutter_app_packager — missing value causes a null-as-int
+# type crash at MakeDebConfig.fromJson.
+installed_size: 60000
 # Runtime libs the GTK Flutter bundle links against.
 dependencies:
   - libgtk-3-0

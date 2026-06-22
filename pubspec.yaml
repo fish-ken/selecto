@@ -110,6 +110,10 @@ msix_config:
   # justification for Store submission).
   capabilities: broadFileSystemAccess
   logo_path: assets/icon/app_icon.png
+  # Do not prompt to install the test certificate in CI (non-interactive
+  # environments return null from stdin, causing a type crash in msix ≥3.x).
+  # For local development the certificate installs on first run anyway.
+  install_certificate: false
   # --- code signing for distribution (uncomment + fill in) ---
   # certificate_path: windows\selecto.pfx
   # certificate_password: <password>
