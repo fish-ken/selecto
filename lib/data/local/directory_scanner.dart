@@ -38,17 +38,17 @@ class DirectoryScanner {
     '.bmp',
   };
 
-  /// Quick pass over [rootPath]: returns every directory that directly
-  /// contains at least one scannable file, identified by extension only
-  /// (no file reads, no RAW preview extraction). Used to populate the
-  /// side-panel folder tree before the slow per-file scan begins so the
-  /// user sees the hierarchy immediately instead of waiting for the first
-  /// batch of photos.
-  Future<List<String>> discoverDirectories(String rootPath) async {
+  /// Quick pass over [rootPath]: returns a map of directory path →
+  /// scannable file count, identified by extension only (no file reads,
+  /// no RAW preview extraction). Used to populate the side-panel folder
+  /// tree before the slow per-file scan begins, and to know when each
+  /// directory has been fully loaded so its loading indicator can be
+  /// cleared individually.
+  Future<Map<String, int>> discoverDirectories(String rootPath) async {
     final root = Directory(rootPath);
-    if (!await root.exists()) return const [];
+    if (!await root.exists()) return const {};
 
-    final dirs = <String>{};
+    final counts = <String, int>{};
     final entities = root
         .list(recursive: true, followLinks: false)
         .handleError(
@@ -60,10 +60,11 @@ class DirectoryScanner {
       if (entity is! File) continue;
       final ext = p.extension(entity.path).toLowerCase();
       if (_decodableExts.contains(ext) || RawPreviewCache.isRaw(entity.path)) {
-        dirs.add(p.dirname(entity.path));
+        final dir = p.dirname(entity.path);
+        counts[dir] = (counts[dir] ?? 0) + 1;
       }
     }
-    return dirs.toList();
+    return counts;
   }
 
   Stream<Photo> scan(String rootPath) async* {

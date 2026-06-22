@@ -13,7 +13,7 @@ class PhotoRepositoryImpl implements PhotoRepository {
   final DirectoryScanner _scanner;
 
   @override
-  Future<List<String>> discoverDirectories(String rootPath) =>
+  Future<Map<String, int>> discoverDirectories(String rootPath) =>
       _scanner.discoverDirectories(rootPath);
 
   @override

@@ -58,14 +58,15 @@ class GalleryController extends _$GalleryController {
     );
 
     // Phase 1: Fast directory discovery — list which directories contain
-    // scannable files by extension only, no file reading. This populates the
-    // side panel with the full folder tree immediately so the user can see
-    // where their photos live even before RAW preview extraction begins.
+    // scannable files by extension only, no file reading. Returns a map of
+    // dir → expected file count so we can clear each folder's loading
+    // indicator individually once its photos have all been extracted.
+    var expectedCounts = const <String, int>{};
     try {
       final repo = ref.read(photoRepositoryProvider);
-      final dirs = await repo.discoverDirectories(rootPath);
-      if (dirs.isNotEmpty) {
-        state = state.copyWith(loadingDirs: dirs.toSet());
+      expectedCounts = await repo.discoverDirectories(rootPath);
+      if (expectedCounts.isNotEmpty) {
+        state = state.copyWith(loadingDirs: expectedCounts.keys.toSet());
       }
     } catch (e) {
       _log.fine('directory discovery failed (non-fatal): $e');
@@ -74,18 +75,40 @@ class GalleryController extends _$GalleryController {
     // Phase 2: Full scan with preview extraction.
     //
     // Flushing strategy: time-based (100 ms periodic timer) rather than
-    // count-based (every 32 photos). This lets each photo appear on-screen
-    // within ≤100 ms of extraction completing — imperceptible as a delay for
-    // slow RAW files (2-5 s each) while still batching fast JPEG scans into
-    // ~10-20 rebuilds instead of one per file (avoids O(n²) rebuild cost).
+    // count-based. Each tick:
+    //   1. Publishes newly extracted photos to the grid.
+    //   2. Compares actual per-dir photo count against the expected count
+    //      from Phase 1 — any directory that has reached its expected count
+    //      is removed from loadingDirs so its spinner disappears immediately,
+    //      without waiting for the whole scan to finish.
     final scan = ref.read(scanDirectoryProvider);
     final buffer = <Photo>[];
 
     _flushTimer?.cancel();
     _flushTimer = Timer.periodic(const Duration(milliseconds: 100), (_) {
-      if (buffer.isNotEmpty) {
-        state = state.copyWith(photos: List.unmodifiable(buffer));
+      if (buffer.isEmpty) return;
+
+      // Per-directory actual count from the accumulated buffer.
+      final currentCounts = <String, int>{};
+      for (final ph in buffer) {
+        final dir = p.dirname(ph.path);
+        currentCounts[dir] = (currentCounts[dir] ?? 0) + 1;
       }
+
+      // Keep only dirs whose photos haven't all arrived yet.
+      // Note: if a RAW file fails extraction it's skipped by the scanner,
+      // so actual count may end up below expected. Those dirs stay in
+      // loadingDirs until onDone clears everything — correct, since the
+      // scan is genuinely still running over them.
+      final stillLoading = <String>{
+        for (final dir in state.loadingDirs)
+          if ((currentCounts[dir] ?? 0) < (expectedCounts[dir] ?? 0)) dir,
+      };
+
+      state = state.copyWith(
+        photos: List.unmodifiable(buffer),
+        loadingDirs: stillLoading,
+      );
     });
 
     _scanSub = scan(rootPath).listen(
@@ -106,7 +129,6 @@ class GalleryController extends _$GalleryController {
         state = state.copyWith(
           photos: List.unmodifiable(buffer),
           scanning: false,
-          // All files extracted — clear loading indicators from every folder.
           clearLoadingDirs: true,
         );
       },
