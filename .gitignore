@@ -91,6 +91,13 @@ native/onnxruntime/
 .env.*
 !.env.example
 
+# Code signing certificates — 절대 커밋 금지
+# CI에서는 GitHub Secrets에 base64로 저장 후 워크플로에서 복원
+*.pfx
+*.p12
+*.cer
+*.key
+
 # =============================================================
 # IDE / Editor
 # =============================================================
