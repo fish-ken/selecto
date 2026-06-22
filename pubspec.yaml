@@ -102,7 +102,7 @@ flutter:
 msix_config:
   display_name: Selecto
   publisher_display_name: fish-ken
-  identity_name: com.nmmonster.selecto
+  identity_name: com.fish-ken.selecto
   msix_version: 1.0.0.0
   description: AI-powered photo culling for desktop
   # The app reads and moves photos in user-chosen folders, so it needs broad
