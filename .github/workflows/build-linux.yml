@@ -4,6 +4,11 @@ name: Build Linux (.deb + .AppImage)
 on:
   workflow_dispatch:
   workflow_call:
+    secrets:
+      LINUX_GPG_KEY:
+        required: false
+      LINUX_GPG_PASSPHRASE:
+        required: false
 
 env:
   FLUTTER_CHANNEL: stable

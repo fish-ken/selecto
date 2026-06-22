@@ -17,14 +17,17 @@ jobs:
   windows:
     name: Windows (MSIX)
     uses: ./.github/workflows/build-windows.yml
+    secrets: inherit
 
   macos:
     name: macOS (.dmg)
     uses: ./.github/workflows/build-macos.yml
+    secrets: inherit
 
   linux:
     name: Linux (.deb + .AppImage)
     uses: ./.github/workflows/build-linux.yml
+    secrets: inherit
 
   release:
     name: Publish GitHub Release

@@ -4,6 +4,19 @@ name: Build macOS (.dmg)
 on:
   workflow_dispatch:
   workflow_call:
+    secrets:
+      MACOS_CERT_P12:
+        required: false
+      MACOS_CERT_PASSWORD:
+        required: false
+      MACOS_CERT_IDENTITY:
+        required: false
+      APPLE_ID:
+        required: false
+      APPLE_APP_PASSWORD:
+        required: false
+      APPLE_TEAM_ID:
+        required: false
 
 env:
   FLUTTER_CHANNEL: stable

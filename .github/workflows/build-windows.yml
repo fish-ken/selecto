@@ -5,6 +5,11 @@ name: Build Windows (MSIX)
 on:
   workflow_dispatch:
   workflow_call:
+    secrets:
+      WINDOWS_CERT_BASE64:
+        required: false
+      WINDOWS_CERT_PASSWORD:
+        required: false
 
 env:
   FLUTTER_CHANNEL: stable
