@@ -30,6 +30,8 @@ class GalleryController extends _$GalleryController {
         results: const {},
         analyzing: false,
       );
+      // Restore any previously computed scores for the newly selected model.
+      _loadCachedResults();
     });
 
     ref.onDispose(() {
@@ -131,8 +133,27 @@ class GalleryController extends _$GalleryController {
           scanning: false,
           clearLoadingDirs: true,
         );
+        // Restore cached scores for the current model without re-running
+        // inference. Results appear immediately on second open.
+        _loadCachedResults();
       },
     );
+  }
+
+  /// Loads previously computed scores for all current photos under the active
+  /// model from the local cache and merges them into [state.results].
+  /// Called after a directory scan completes and whenever the model changes,
+  /// so the gallery shows cached scores without the user having to re-run
+  /// analysis.
+  Future<void> _loadCachedResults() async {
+    if (state.photos.isEmpty) return;
+    final repo = ref.read(aiAnalysisRepositoryProvider);
+    final cached = await repo.loadCached(state.photos);
+    if (cached.isEmpty) return;
+    // Merge with any in-memory results that may have arrived since the
+    // scan completed (e.g. a fast inference run finishing concurrently).
+    final merged = {...state.results, ...cached};
+    state = state.copyWith(results: Map.unmodifiable(merged));
   }
 
   Future<void> analyzeAll() async {
@@ -142,7 +163,6 @@ class GalleryController extends _$GalleryController {
     state = state.copyWith(analyzing: true, clearError: true);
 
     final running = Map.of(state.results);
-    final startCount = running.length;
     final totalRequested = state.photos.length;
 
     Object? streamError;
@@ -160,11 +180,13 @@ class GalleryController extends _$GalleryController {
       },
       cancelOnError: false,
       onDone: () {
-        final newlyAnalyzed = running.length - startCount;
-        // If the stream completed but yielded nothing AND no explicit
-        // error came through, surface a generic hint so the user isn't
-        // stuck staring at unchanged scores.
-        if (newlyAnalyzed == 0 && totalRequested > 0 && streamError == null) {
+        // Surface a hint only when there are NO results at all after the
+        // stream — this catches model-misconfiguration (inference produced
+        // nothing and there were no cached scores either). Checking
+        // `running.isEmpty` instead of `newlyAnalyzed == 0` avoids a
+        // false positive when all photos were already cached (in which case
+        // newlyAnalyzed would be 0 but running is non-empty).
+        if (running.isEmpty && totalRequested > 0 && streamError == null) {
           state = state.copyWith(
             analyzing: false,
             error: StateError(

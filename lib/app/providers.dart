@@ -1,4 +1,3 @@
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import '../ai/ai_service.dart';
@@ -69,8 +68,9 @@ AiService aiService(AiServiceRef ref) {
 @Riverpod(keepAlive: true)
 AiAnalysisRepository aiAnalysisRepository(AiAnalysisRepositoryRef ref) {
   final service = ref.watch(aiServiceProvider);
-  // Caching disabled — repository is a passthrough to the AI service.
-  return AiAnalysisRepositoryImpl(service: service);
+  final db = ref.watch(appDatabaseProvider);
+  final modelId = ref.watch(selectedModelProvider).id;
+  return AiAnalysisRepositoryImpl(service: service, db: db, modelId: modelId);
 }
 
 @riverpod

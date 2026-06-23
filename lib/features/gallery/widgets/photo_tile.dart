@@ -117,8 +117,7 @@ class PhotoTile extends StatelessWidget {
         onTap: onTap,
         onDoubleTap: onDoubleTap,
         onSecondaryTapDown: (pos) => _showContextMenu(context, pos),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 80),
+        child: Container(
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(6),
             border: Border.all(
