@@ -1,10 +1,11 @@
 # Selecto
+<img width="1266" height="812" alt="image" src="https://github.com/user-attachments/assets/65e7611f-7405-4a09-a551-99bbbaa35f7e" />
+<img width="1266" height="812" alt="image" src="https://github.com/user-attachments/assets/a1e7f3ee-3bbf-4b69-924e-a7f3fdd06f6b" />
 
-<img width="1355" height="878" alt="image" src="https://github.com/user-attachments/assets/4622b872-a915-4480-97a2-dee6edce11e2" />
-<img width="1355" height="878" alt="image" src="https://github.com/user-attachments/assets/8705ac3b-d22b-45aa-9dc6-f1162bc095a1" />
 
-Windows · macOS · Linux 데스크톱용 **AI 기반 사진 컬링/선별 앱**.
+AI-powered photo culling & RAW viewer
 
+Download release: https://github.com/fish-ken/selecto/releases
 
 
 ## Quickstart
