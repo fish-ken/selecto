@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:logging/logging.dart';
@@ -25,6 +26,12 @@ class DirectoryScanner {
   final RawPreviewCache _rawCache;
 
   static final _log = Logger('DirectoryScanner');
+
+  // Maximum simultaneous stat() + RAW-extraction tasks. RAW extraction has
+  // its own inner cap (RawPreviewCache.maxConcurrent = 4) that bounds
+  // memory; this outer cap mainly parallelises the stat() syscalls for
+  // JPEG/PNG files and keeps the pipeline from stalling behind slow stat.
+  static const _maxConcurrent = 16;
 
   static const _decodableExts = <String>{
     '.jpg',
@@ -67,7 +74,34 @@ class DirectoryScanner {
     return counts;
   }
 
-  Stream<Photo> scan(String rootPath) async* {
+  /// Scans [rootPath] recursively and emits one [Photo] per supported file.
+  ///
+  /// Up to [_maxConcurrent] files are processed simultaneously so that
+  /// stat() syscalls and RAW preview extractions overlap instead of
+  /// queuing sequentially. The stream is ordered by completion time, not
+  /// by directory-listing order, which is fine for a photo grid that
+  /// re-sorts by date anyway.
+  Stream<Photo> scan(String rootPath) {
+    var cancelled = false;
+    late final StreamController<Photo> ctrl;
+    ctrl = StreamController<Photo>(onCancel: () => cancelled = true);
+
+    _doScan(rootPath, ctrl, () => cancelled)
+        .catchError((Object e, StackTrace st) {
+          if (!ctrl.isClosed) ctrl.addError(e, st);
+        })
+        .whenComplete(() {
+          if (!ctrl.isClosed) ctrl.close();
+        });
+
+    return ctrl.stream;
+  }
+
+  Future<void> _doScan(
+    String rootPath,
+    StreamController<Photo> out,
+    bool Function() isCancelled,
+  ) async {
     final root = Directory(rootPath);
     if (!await root.exists()) return;
 
@@ -78,39 +112,84 @@ class DirectoryScanner {
           test: (e) => e is FileSystemException,
         );
 
+    // Bounded-concurrency semaphore — same pattern as RawPreviewCache.
+    var inFlight = 0;
+    final waiters = <Completer<void>>[];
+
+    Future<void> acquire() {
+      if (inFlight < _maxConcurrent) {
+        inFlight++;
+        return Future.value();
+      }
+      final c = Completer<void>();
+      waiters.add(c);
+      return c.future.then((_) => inFlight++);
+    }
+
+    void release() {
+      inFlight--;
+      if (waiters.isNotEmpty) waiters.removeAt(0).complete();
+    }
+
+    final tasks = <Future<void>>[];
+
     await for (final entity in entities) {
+      if (isCancelled()) break;
       if (entity is! File) continue;
       final ext = p.extension(entity.path).toLowerCase();
       final isDecodable = _decodableExts.contains(ext);
       final isRaw = RawPreviewCache.isRaw(entity.path);
       if (!isDecodable && !isRaw) continue;
 
-      final FileStat stat;
-      try {
-        stat = await entity.stat();
-      } on FileSystemException catch (e) {
-        _log.fine('stat failed for ${entity.path}: $e');
-        continue;
+      await acquire();
+      if (isCancelled()) {
+        release();
+        break;
       }
 
-      String? previewPath;
-      if (isRaw) {
-        previewPath = await _rawCache.extractPreview(
-          entity,
-          mtime: stat.modified,
-          size: stat.size,
-        );
-        // Couldn't extract a preview → skip rather than yield a Photo
-        // that grid/AI can't actually decode.
-        if (previewPath == null) continue;
-      }
-
-      yield Photo(
-        path: entity.path,
-        byteSize: stat.size,
-        modifiedAt: stat.modified,
-        previewPath: previewPath,
-      );
+      final task = _processFile(entity, isRaw: isRaw)
+          .then(
+            (photo) {
+              if (photo != null && !isCancelled() && !out.isClosed) {
+                out.add(photo);
+              }
+            },
+            onError: (Object e) =>
+                _log.fine('process failed for ${entity.path}: $e'),
+          )
+          .whenComplete(release);
+      tasks.add(task);
     }
+
+    // Drain any tasks still in flight when the directory listing ended
+    // (or when we broke early due to cancellation).
+    await Future.wait(tasks);
+  }
+
+  Future<Photo?> _processFile(File entity, {required bool isRaw}) async {
+    final FileStat stat;
+    try {
+      stat = await entity.stat();
+    } on FileSystemException catch (e) {
+      _log.fine('stat failed for ${entity.path}: $e');
+      return null;
+    }
+
+    String? previewPath;
+    if (isRaw) {
+      previewPath = await _rawCache.extractPreview(
+        entity,
+        mtime: stat.modified,
+        size: stat.size,
+      );
+      if (previewPath == null) return null;
+    }
+
+    return Photo(
+      path: entity.path,
+      byteSize: stat.size,
+      modifiedAt: stat.modified,
+      previewPath: previewPath,
+    );
   }
 }
