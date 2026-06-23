@@ -142,19 +142,6 @@ class _GalleryAppBar extends ConsumerWidget implements PreferredSizeWidget {
       actions: [
         const ModelPicker(),
         const SizedBox(width: 8),
-        Builder(
-          builder: (context) => IconButton(
-            tooltip: t.tr('openFolder'),
-            onPressed: () async {
-              final path = await FilePicker.platform.getDirectoryPath();
-              if (path == null) return;
-              await ref
-                  .read(galleryControllerProvider.notifier)
-                  .openDirectory(path);
-            },
-            icon: const Icon(Icons.folder_open),
-          ),
-        ),
         IconButton(
           tooltip: t.tr('analyze'),
           onPressed: !s.hasPhotos || s.analyzing ? null : ctrl.analyzeAll,
