@@ -100,6 +100,7 @@ jobs:
           name: selecto-linux
           path: |
             dist/**/*.deb
+            dist/**/*.deb.asc
             dist/**/*.AppImage
           if-no-files-found: error
           retention-days: 7
