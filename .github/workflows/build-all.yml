@@ -15,7 +15,7 @@ permissions:
 
 jobs:
   windows:
-    name: Windows (MSIX)
+    name: Windows (.msix)
     uses: ./.github/workflows/build-windows.yml
     secrets: inherit
 

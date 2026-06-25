@@ -1,4 +1,4 @@
-name: Build Windows (MSIX)
+name: Build Windows (.msix)
 
 # 단독 실행(Actions 탭의 "Run workflow")과, build-all.yml 에서의 호출
 # (workflow_call) 을 모두 지원합니다.
