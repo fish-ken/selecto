@@ -1,4 +1,7 @@
 # Windows 설치방법 (.msix)
+
+**해당 인증서 설치 작업은 최초 1회만 하시면 됩니다**
+
 - [Release](https://github.com/fish-ken/selecto/releases) 에서 msix 다운로드  
 
 
