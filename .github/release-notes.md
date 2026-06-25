@@ -28,10 +28,10 @@
 -->
 
 ## ✨ 기능 
-- RAW 미리보기 캐시 지우는 기능 생성
+- 
 
 ## 🐛 버그 수정
-- 패키지 크래쉬 수정
+- 
 
 ## 📥 설치 ([설치 방법](https://github.com/fish-ken/selecto/blob/main/INSTALL.md))
 
