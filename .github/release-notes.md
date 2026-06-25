@@ -20,18 +20,28 @@
       자동으로 붙입니다. 여기서는 직접 작성할 필요가 없습니다.
     - 워크플로는 "태그가 가리키는 커밋"의 이 파일을 읽습니다. 즉, 태그를
       달기 전 상태의 내용이 반영됩니다.
+    - 설치 표의 __DL_WINDOWS__ / __DL_MACOS__ / __DL_LINUX_DEB__ /
+      __DL_LINUX_APPIMAGE__ 자리표시자는, 릴리스 시 워크플로가 이번 태그에
+      첨부되는 실제 파일명으로 만든 다운로드 링크([파일명](URL))로 자동
+      치환합니다. 클릭하면 그 릴리스 버전의 파일이 받아집니다. 자리표시자는
+      그대로 두고 위치/주변 텍스트만 바꾸세요.
 -->
 
 ## ✨ 이번 릴리스 하이라이트
 
+### 기능
+- 
+
+### 버그수정
 - 
 
 ## 📥 설치
+- [설치 가이드](https://github.com/fish-ken/selecto/blob/main/INSTALL.md)
 
 | 플랫폼 | 설치 파일 |
 | --- | --- |
-| Windows | `selecto.msix` |
-| macOS | `selecto.dmg` |
-| Linux | `selecto.deb` / `selecto*.AppImage` |
+| Windows | __DL_WINDOWS__ |
+| macOS | __DL_MACOS__ |
+| Linux | __DL_LINUX_DEB__ / __DL_LINUX_APPIMAGE__ |
 
 ---

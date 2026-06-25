@@ -47,14 +47,46 @@ jobs:
         with:
           path: artifacts
 
+      # 템플릿의 __DL_*__ 자리표시자를, 이번 태그 릴리스에 첨부될 "실제"
+      # 파일명으로 만든 다운로드 링크로 치환합니다. 설치 파일명은 빌드 도구가
+      # 정하고 보통 버전이 박히므로(예: selecto-1.0.3-macos.dmg) 태그만으로는
+      # 알 수 없어, 다운로드된 아티팩트에서 실제 파일명을 찾아
+      # [파일명](https://github.com/<repo>/releases/download/<태그>/<파일명>)
+      # 형태의 링크를 만듭니다. 그 아래에 GitHub 자동 변경 로그가 붙습니다.
+      - name: Render release notes (다운로드 링크 치환)
+        env:
+          TAG: ${{ github.ref_name }}
+          REPO: ${{ github.repository }}
+        run: |
+          base="https://github.com/$REPO/releases/download/$TAG"
+          # glob 패턴으로 첫 매칭 파일을 찾아 [파일명](URL) 링크 생성.
+          # 못 찾으면 대시(—). (해당 플랫폼 빌드가 없을 때의 안전장치)
+          link() {
+            local f
+            f=$(find artifacts -type f -name "$1" | head -n1)
+            if [ -n "$f" ]; then
+              printf '[%s](%s/%s)' "$(basename "$f")" "$base" "$(basename "$f")"
+            else
+              printf '—'
+            fi
+          }
+          out="$RUNNER_TEMP/release-body.md"
+          cp .github/release-notes.md "$out"
+          # | 를 sed 구분자로 써서 URL 의 / 이스케이프를 피한다.
+          sed -i \
+            -e "s|__DL_WINDOWS__|$(link '*.msix')|g" \
+            -e "s|__DL_MACOS__|$(link '*.dmg')|g" \
+            -e "s|__DL_LINUX_DEB__|$(link '*.deb')|g" \
+            -e "s|__DL_LINUX_APPIMAGE__|$(link '*.AppImage')|g" \
+            -e "s|__TAG__|$TAG|g" \
+            "$out"
+
       # body_path 의 내용이 자동 생성되는 "What's Changed / Full Changelog"
-      # 바로 위에 그대로 들어갑니다(GitHub API 가 body 를 pre-pend). 태그가
-      # 가리키는 커밋의 .github/release-notes.md 를 읽으므로, 태그를 달기 전에
-      # 그 파일을 수정·커밋해 두면 됩니다.
+      # 바로 위에 pre-pend 됩니다(GitHub API 표준 동작).
       - name: Publish release
         uses: softprops/action-gh-release@v2
         with:
           files: artifacts/**/*
-          body_path: .github/release-notes.md
+          body_path: ${{ runner.temp }}/release-body.md
           generate_release_notes: true
           fail_on_unmatched_files: true
