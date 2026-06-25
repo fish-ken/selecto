@@ -1,7 +1,7 @@
 name: selecto
 description: AI-powered photo culling/selection for Windows, macOS, and Linux.
 publish_to: "none"
-version: 0.1.0+1
+version: 1.0.3+1
 
 environment:
   sdk: ">=3.4.0 <4.0.0"
@@ -37,7 +37,6 @@ dependencies:
   path: ^1.9.0
 
   # File picking + native dialogs
-  file_picker: ^8.0.5
   file_selector: ^1.0.3
 
   # Image decoding / processing (off-thread via isolates)
@@ -103,7 +102,7 @@ msix_config:
   display_name: Selecto
   publisher_display_name: fish-ken
   identity_name: com.fish-ken.selecto
-  msix_version: 1.0.0.0
+  msix_version: 1.0.3.0
   description: AI-powered photo culling for desktop
   # The app reads and moves photos in user-chosen folders, so it needs broad
   # file-system access (a restricted capability — fine for sideloading; needs

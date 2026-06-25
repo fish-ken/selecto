@@ -1,4 +1,4 @@
-import 'package:file_picker/file_picker.dart';
+import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -51,7 +51,7 @@ class _GalleryScreenState extends ConsumerState<GalleryScreen>
   void onWindowBlur() => ref.read(modifierKeysProvider.notifier).reset();
 
   Future<void> _pickDirectory() async {
-    final path = await FilePicker.platform.getDirectoryPath();
+    final path = await getDirectoryPath();
     if (path == null) return;
     await ref.read(galleryControllerProvider.notifier).openDirectory(path);
   }
@@ -132,7 +132,7 @@ class _GalleryAppBar extends ConsumerWidget implements PreferredSizeWidget {
         label: s.rootPath ?? t.tr('appTitle'),
         tooltip: t.tr('changeFolder'),
         onTap: () async {
-          final path = await FilePicker.platform.getDirectoryPath();
+          final path = await getDirectoryPath();
           if (path == null) return;
           await ref
               .read(galleryControllerProvider.notifier)
