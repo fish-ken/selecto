@@ -4,6 +4,7 @@ import '../ai/ai_service.dart';
 import '../ai/model_configs/model_configs.dart';
 import '../ai/onnx_ai_service.dart';
 import '../data/local/app_database.dart';
+import '../data/local/preview_cache_manager.dart';
 import '../data/repositories/ai_analysis_repository_impl.dart';
 import '../data/repositories/photo_repository_impl.dart';
 import '../domain/repositories/ai_analysis_repository.dart';
@@ -84,3 +85,9 @@ AnalyzePhotos analyzePhotos(AnalyzePhotosRef ref) =>
 @riverpod
 SelectBestShots selectBestShots(SelectBestShotsRef ref) =>
     const SelectBestShots();
+
+/// Current size of the RAW preview cache in bytes.
+/// Invalidate after [PreviewCacheManager.clear] to refresh the display.
+@riverpod
+Future<int> previewCacheSize(PreviewCacheSizeRef ref) =>
+    PreviewCacheManager().sizeInBytes();

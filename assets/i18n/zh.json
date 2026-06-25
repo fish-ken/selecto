@@ -42,6 +42,10 @@
   "exifFileSize": "文件大小",
   "settingsTitle": "设置",
   "language": "语言",
+  "cacheSection": "缓存",
+  "previewCacheLabel": "RAW 预览缓存",
+  "clearCache": "清除缓存",
+  "cacheSizeCalculating": "计算中…",
   "credits": "致谢",
   "close": "关闭",
   "creditsBody": "Selecto — 桌面端 AI 照片筛选工具。\n\nAI 模型：NIMA（美学/技术），MANIQA（KADID-10K）。\n使用 Flutter、Riverpod、Drift 和 ONNX Runtime 构建。"

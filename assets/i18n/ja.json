@@ -42,6 +42,10 @@
   "exifFileSize": "ファイルサイズ",
   "settingsTitle": "設定",
   "language": "言語",
+  "cacheSection": "キャッシュ",
+  "previewCacheLabel": "RAW プレビューキャッシュ",
+  "clearCache": "キャッシュを削除",
+  "cacheSizeCalculating": "計算中…",
   "credits": "クレジット",
   "close": "閉じる",
   "creditsBody": "Selecto — デスクトップ向け AI 写真セレクトツール。\n\nAI モデル：NIMA（美的/技術的）、MANIQA（KADID-10K）。\nFlutter、Riverpod、Drift、ONNX Runtime で構築。"

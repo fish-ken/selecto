@@ -42,6 +42,10 @@
   "exifFileSize": "File size",
   "settingsTitle": "Settings",
   "language": "Language",
+  "cacheSection": "Cache",
+  "previewCacheLabel": "RAW preview cache",
+  "clearCache": "Clear cache",
+  "cacheSizeCalculating": "Calculating…",
   "credits": "Credits",
   "close": "Close",
   "creditsBody": "Selecto — AI-powered photo culling for desktop.\n\nAI models: NIMA (aesthetic/technical), MANIQA (KADID-10K).\nBuilt with Flutter, Riverpod, Drift, and ONNX Runtime."
