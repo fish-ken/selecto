@@ -1,41 +1,42 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../app/providers.dart';
+import '../../../domain/entities/photo.dart';
 import '../../../l10n/l10n.dart';
+import '../../shared/raw_aware_image.dart';
 import '../photo_metadata.dart';
 
 /// Right-hand info panel for the loupe view: an RGB histogram on top and a
-/// list of EXIF fields below. Loads its data for [path] once (key it by path
-/// in the parent so a new photo reloads).
+/// list of EXIF fields below. Loads its data for [photo] once (key it by the
+/// photo in the parent so a new photo reloads).
 class InfoPanel extends ConsumerStatefulWidget {
-  const InfoPanel({
-    super.key,
-    required this.imagePath,
-    required this.exifPath,
-    required this.fileBytes,
-  });
+  const InfoPanel({super.key, required this.photo});
 
-  /// The decodable file (plain JPEG, or a RAW's embedded preview) — used for
-  /// the histogram and as the EXIF fallback.
-  final String imagePath;
-
-  /// The original file (e.g. a `.ARW`) — read first for EXIF, since a RAW's
-  /// embedded preview often lacks an EXIF segment.
-  final String exifPath;
-
-  /// Original file size, shown as a row.
-  final int fileBytes;
+  /// The photo whose metadata to display. Its embedded preview is re-extracted
+  /// on demand if the cache was cleared, so the histogram keeps working.
+  final Photo photo;
 
   @override
   ConsumerState<InfoPanel> createState() => _InfoPanelState();
 }
 
 class _InfoPanelState extends ConsumerState<InfoPanel> {
-  late final Future<PhotoMetadata> _future = loadPhotoMetadata(
-    widget.imagePath,
-    exifPath: widget.exifPath,
-    fileBytes: widget.fileBytes,
-  );
+  late final Future<PhotoMetadata> _future = _load();
+
+  /// Re-extract the RAW preview if it's missing, then derive the metadata from
+  /// it. The decodable file (plain JPEG, or a RAW's embedded preview) feeds the
+  /// histogram and is the EXIF fallback; the original file ([Photo.path], e.g.
+  /// a `.ARW`) is read first for EXIF since a RAW's preview often lacks it.
+  Future<PhotoMetadata> _load() async {
+    final cache = ref.read(rawPreviewCacheProvider);
+    final imagePath = await ensureDecodable(widget.photo, cache);
+    return loadPhotoMetadata(
+      imagePath,
+      exifPath: widget.photo.path,
+      fileBytes: widget.photo.byteSize,
+    );
+  }
 
   static const _bg = Color(0xFF161616);
 

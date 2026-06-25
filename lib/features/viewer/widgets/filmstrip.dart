@@ -1,11 +1,10 @@
-import 'dart:io';
-
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
 import '../../../domain/entities/analysis_result.dart';
 import '../../../domain/entities/photo.dart';
 import '../../gallery/gallery_state.dart';
+import '../../shared/raw_aware_image.dart';
 
 /// Horizontal thumbnail strip shown along the bottom of the viewer.
 /// Auto-scrolls to keep the current photo centred.
@@ -229,8 +228,8 @@ class _FilmstripTile extends StatelessWidget {
             child: Stack(
               fit: StackFit.expand,
               children: [
-                Image.file(
-                  File(photo.decodablePath),
+                PhotoImage(
+                  photo: photo,
                   fit: BoxFit.cover,
                   cacheWidth: cacheDim,
                   cacheHeight: cacheDim,

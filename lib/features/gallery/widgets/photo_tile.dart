@@ -1,10 +1,9 @@
-import 'dart:io';
-
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
 import '../../../domain/entities/analysis_result.dart';
 import '../../../domain/entities/photo.dart';
+import '../../shared/raw_aware_image.dart';
 
 /// Single grid tile. Uses [Image.file] with `cacheWidth`/`cacheHeight`
 /// so the decode produces a thumbnail-sized bitmap instead of a full
@@ -141,8 +140,8 @@ class PhotoTile extends StatelessWidget {
             child: Stack(
               fit: StackFit.expand,
               children: [
-                Image.file(
-                  File(photo.decodablePath),
+                PhotoImage(
+                  photo: photo,
                   fit: BoxFit.cover,
                   cacheWidth: cacheDim,
                   cacheHeight: cacheDim,

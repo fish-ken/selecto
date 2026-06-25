@@ -1,5 +1,3 @@
-import 'dart:io';
-
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -7,10 +5,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../app/providers.dart';
+import '../../data/local/raw_preview_cache.dart';
+import '../../domain/entities/photo.dart';
 import '../../l10n/l10n.dart';
 import '../gallery/gallery_controller.dart';
 import '../gallery/gallery_state.dart';
 import '../gallery/modifier_keys.dart';
+import '../shared/raw_aware_image.dart';
 import 'widgets/filmstrip.dart';
 import 'widgets/info_panel.dart';
 import 'widgets/viewer_shortcuts.dart';
@@ -50,6 +51,7 @@ class _ViewerScreenState extends ConsumerState<ViewerScreen> {
     final ctrl = ref.read(galleryControllerProvider.notifier);
     final t = ref.watch(stringsProvider);
     final infoVisible = ref.watch(viewerInfoVisibleProvider);
+    final rawCache = ref.watch(rawPreviewCacheProvider);
 
     // Warm the preview cache for adjacent photos so stepping ←/→ shows the
     // next photo's soft preview instantly — instead of a black gap or the
@@ -109,7 +111,8 @@ class _ViewerScreenState extends ConsumerState<ViewerScreen> {
                     // finishes decoding, instead of flashing black on every
                     // navigation. Zoom is reset in didUpdateWidget instead.
                     child: _ZoomableImage(
-                      imagePath: photo.decodablePath,
+                      photo: photo,
+                      rawCache: rawCache,
                       // Right-click on the main image toggles pick on the
                       // currently displayed photo (no need to leave the viewer).
                       onSecondaryTap: () => ctrl.togglePickByPath(photo.path),
@@ -123,12 +126,8 @@ class _ViewerScreenState extends ConsumerState<ViewerScreen> {
                       child: InfoPanel(
                         // Re-key per photo so the panel reloads its EXIF +
                         // histogram for the newly shown image.
-                        key: ValueKey(photo.decodablePath),
-                        imagePath: photo.decodablePath,
-                        // Original path (the RAW for ARW/NEF/…) so EXIF reads
-                        // from the file that actually carries it.
-                        exifPath: photo.path,
-                        fileBytes: photo.byteSize,
+                        key: ValueKey(photo.cacheKey),
+                        photo: photo,
                       ),
                     ),
                 ],
@@ -175,13 +174,14 @@ class _ViewerScreenState extends ConsumerState<ViewerScreen> {
     if (index == _precachedAround) return;
     _precachedAround = index;
     final width = _previewCacheWidth(context);
+    final rawCache = ref.read(rawPreviewCacheProvider);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       for (final offset in const [-3, -2, -1, 1, 2, 3]) {
         final i = index + offset;
         if (i < 0 || i >= state.visiblePhotos.length) continue;
         precacheImage(
-          _previewProvider(state.visiblePhotos[i].decodablePath, width),
+          _previewProvider(state.visiblePhotos[i], rawCache, width),
           context,
         );
       }
@@ -200,11 +200,13 @@ class _ViewerScreenState extends ConsumerState<ViewerScreen> {
 /// old double-click-to-close gesture is now the zoom toggle.
 class _ZoomableImage extends StatefulWidget {
   const _ZoomableImage({
-    required this.imagePath,
+    required this.photo,
+    required this.rawCache,
     required this.onSecondaryTap,
   });
 
-  final String imagePath;
+  final Photo photo;
+  final RawPreviewCache rawCache;
   final VoidCallback onSecondaryTap;
 
   @override
@@ -249,7 +251,7 @@ class _ZoomableImageState extends State<_ZoomableImage>
     // Navigated to a different photo (same widget, since we no longer key by
     // path). Drop any in-flight zoom animation and snap back to fit so each
     // photo opens at 1× — the reset the ValueKey used to give us for free.
-    if (old.imagePath != widget.imagePath) {
+    if (old.photo.path != widget.photo.path) {
       _animController.stop();
       _controller.value = Matrix4.identity();
       _lastTapPosition = null;
@@ -337,7 +339,10 @@ class _ZoomableImageState extends State<_ZoomableImage>
           // The child fills the whole pane so pointer coordinates map
           // 1:1 onto the transform space used by double-tap / Ctrl+wheel.
           child: SizedBox.expand(
-            child: _ProgressivePhoto(path: widget.imagePath),
+            child: _ProgressivePhoto(
+              photo: widget.photo,
+              rawCache: widget.rawCache,
+            ),
           ),
         ),
       ),
@@ -359,8 +364,11 @@ int _previewCacheWidth(BuildContext context) {
 /// Provider for the preview layer. Shared by [_ProgressivePhoto] and the
 /// neighbor precache in [_ViewerScreenState] so both resolve to the same
 /// image-cache entry — that's what lets ←/→ paint the next preview at once.
-ImageProvider _previewProvider(String path, int width) =>
-    ResizeImage(FileImage(File(path)), width: width, allowUpscaling: false);
+///
+/// Backed by [RawAwareImage], so a RAW photo whose preview cache was cleared
+/// mid-session is re-extracted on demand instead of failing to decode.
+ImageProvider _previewProvider(Photo photo, RawPreviewCache cache, int width) =>
+    rawAwarePreview(photo, cache, width: width);
 
 /// Two-layer image for the loupe view that avoids the black pane a single
 /// full-resolution `Image.file` shows while it decodes the whole 24MP
@@ -376,9 +384,10 @@ ImageProvider _previewProvider(String path, int width) =>
 ///
 /// Both use `BoxFit.contain`, so the two layers stay pixel-aligned.
 class _ProgressivePhoto extends StatelessWidget {
-  const _ProgressivePhoto({required this.path});
+  const _ProgressivePhoto({required this.photo, required this.rawCache});
 
-  final String path;
+  final Photo photo;
+  final RawPreviewCache rawCache;
 
   @override
   Widget build(BuildContext context) {
@@ -393,7 +402,7 @@ class _ProgressivePhoto extends StatelessWidget {
         // navigation instant; only flips that outrun the precache blank
         // briefly instead of showing a stale image).
         Image(
-          image: _previewProvider(path, _previewCacheWidth(context)),
+          image: _previewProvider(photo, rawCache, _previewCacheWidth(context)),
           fit: BoxFit.contain,
           filterQuality: FilterQuality.low,
           // Stay silent on error — the full-res layer shows the broken icon.
@@ -402,8 +411,8 @@ class _ProgressivePhoto extends StatelessWidget {
         // Full-resolution on top. No gaplessPlayback: on a photo change it
         // clears immediately so the previous photo can't sit in front of the
         // new preview; it re-appears once this photo's full decode lands.
-        Image.file(
-          File(path),
+        Image(
+          image: rawAwarePreview(photo, rawCache),
           fit: BoxFit.contain,
           filterQuality: FilterQuality.medium,
           errorBuilder: (_, __, ___) => const Center(

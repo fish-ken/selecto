@@ -5,6 +5,7 @@ import '../ai/model_configs/model_configs.dart';
 import '../ai/onnx_ai_service.dart';
 import '../data/local/app_database.dart';
 import '../data/local/preview_cache_manager.dart';
+import '../data/local/raw_preview_cache.dart';
 import '../data/repositories/ai_analysis_repository_impl.dart';
 import '../data/repositories/photo_repository_impl.dart';
 import '../domain/repositories/ai_analysis_repository.dart';
@@ -22,9 +23,16 @@ AppDatabase appDatabase(AppDatabaseRef ref) {
   return db;
 }
 
+/// Shared RAW preview extractor. keepAlive so a single instance — and its one
+/// bounded-concurrency semaphore — serves both the directory scan and the
+/// on-demand re-extraction that [RawAwareImage] triggers when a cached preview
+/// is gone (e.g. the user cleared the cache mid-session).
+@Riverpod(keepAlive: true)
+RawPreviewCache rawPreviewCache(RawPreviewCacheRef ref) => RawPreviewCache();
+
 @Riverpod(keepAlive: true)
 PhotoRepository photoRepository(PhotoRepositoryRef ref) {
-  return PhotoRepositoryImpl();
+  return PhotoRepositoryImpl(rawCache: ref.watch(rawPreviewCacheProvider));
 }
 
 /// The fixed registry of bundled models — see [kModelConfigs] in

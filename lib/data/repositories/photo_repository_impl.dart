@@ -5,10 +5,13 @@ import 'package:path/path.dart' as p;
 import '../../domain/entities/photo.dart';
 import '../../domain/repositories/photo_repository.dart';
 import '../local/directory_scanner.dart';
+import '../local/raw_preview_cache.dart';
 
 class PhotoRepositoryImpl implements PhotoRepository {
-  PhotoRepositoryImpl({DirectoryScanner? scanner})
-      : _scanner = scanner ?? DirectoryScanner();
+  /// [rawCache] is forwarded to the scanner so the initial scan and the
+  /// on-demand preview re-extraction share one extractor (and its semaphore).
+  PhotoRepositoryImpl({DirectoryScanner? scanner, RawPreviewCache? rawCache})
+      : _scanner = scanner ?? DirectoryScanner(rawCache: rawCache);
 
   final DirectoryScanner _scanner;
 
