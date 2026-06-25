@@ -27,16 +27,13 @@
       그대로 두고 위치/주변 텍스트만 바꾸세요.
 -->
 
-## ✨ 이번 릴리스 하이라이트
+## ✨ 기능 
+- RAW 미리보기 캐시 지우는 기능 생성
 
-### 기능
-- 
+## 🐛 버그 수정
+- 패키지 크래쉬 수정
 
-### 버그수정
-- 
-
-## 📥 설치
-- [설치 가이드](https://github.com/fish-ken/selecto/blob/main/INSTALL.md)
+## 📥 설치 ([설치 방법](https://github.com/fish-ken/selecto/blob/main/INSTALL.md))
 
 | 플랫폼 | 설치 파일 |
 | --- | --- |
