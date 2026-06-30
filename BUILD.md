@@ -92,7 +92,7 @@ flutter_distributor package --platform linux   --targets deb,appimage  # Linux .
 | `build-all.yml` | (오케스트레이션) | 위 3개 호출 + GitHub Release 자동 첨부 |
 
 - 각 워크플로는 **개별로 "Run workflow"** 가능(`workflow_dispatch`)하며, `build-all.yml` 이 `workflow_call` 로 호출합니다.
-- `build-all.yml` 은 수동 실행 또는 **`v*` 태그 푸시**(예: `v1.0.3`) 시 3-OS 빌드를 돌리고, 태그일 때는 설치본을 **GitHub Release 에 첨부**합니다 (릴리스 노트는 `.github/release-notes.md` 템플릿 기반).
+- `build-all.yml` 은 수동 실행 또는 **`v*` 태그 푸시**(예: `v1.0.3`) 시 3-OS 빌드를 돌리고, 태그일 때는 설치본을 **GitHub Release 에 첨부**합니다 (릴리스 노트는 `.github/RELEASE_NOTE_TEMPLATE.md` 템플릿 기반).
 - 플랫폼 폴더가 커밋돼 있어 `flutter create` 단계는 없습니다 — LFS 체크아웃 → `flutter pub get` → `build_runner` → 패키징 순으로 동작합니다.
 - Windows MSIX 는 `WINDOWS_CERT_BASE64` / `WINDOWS_CERT_PASSWORD` 시크릿이 있으면 그 인증서로 서명하고, 없으면 테스트 자체 서명으로 빌드합니다.
 

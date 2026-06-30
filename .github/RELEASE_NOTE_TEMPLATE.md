@@ -1,5 +1,5 @@
 <!--
-  📌 릴리스 노트 템플릿 (.github/release-notes.md)
+  📌 릴리스 노트 템플릿 (.github/RELEASE_NOTE_TEMPLATE.md)
 
   이 파일의 내용은 GitHub Release 설명에서 자동 생성되는
   "What's Changed / Full Changelog" 바로 위에 그대로 들어갑니다.
