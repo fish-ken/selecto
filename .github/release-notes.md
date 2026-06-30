@@ -37,8 +37,8 @@
 
 | 플랫폼 | 설치 파일 |
 | --- | --- |
-| Windows ([가이드](https://github.com/fish-ken/selecto/blob/main/GUIDE_WINDOWS.md))  | __DL_WINDOWS__ |
-| macOS ([가이드](https://github.com/fish-ken/selecto/blob/main/GUIDE_MAC.md))| __DL_MACOS__ |
-| Linux ([가이드](https://github.com/fish-ken/selecto/blob/main/GUIDE_LINUX.md))| __DL_LINUX_DEB__ / __DL_LINUX_APPIMAGE__ |
+| Windows ([가이드](https://github.com/fish-ken/selecto/blob/main/INSTALL_GUIDE_WINDOWS.md))  | __DL_WINDOWS__ |
+| macOS ([가이드](https://github.com/fish-ken/selecto/blob/main/INSTALL_GUIDE_MAC.md))| __DL_MACOS__ |
+| Linux ([가이드](https://github.com/fish-ken/selecto/blob/main/INSTALL_GUIDE_LINUX.md))| __DL_LINUX_DEB__ / __DL_LINUX_APPIMAGE__ |
 
 ---
