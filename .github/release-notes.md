@@ -33,12 +33,12 @@
 ## 🐛 버그 수정
 - 
 
-## 📥 설치 ([설치 방법](https://github.com/fish-ken/selecto/blob/main/INSTALL.md))
+## 📥 설치
 
 | 플랫폼 | 설치 파일 |
 | --- | --- |
-| Windows | __DL_WINDOWS__ |
-| macOS | __DL_MACOS__ |
-| Linux | __DL_LINUX_DEB__ / __DL_LINUX_APPIMAGE__ |
+| Windows ([가이드](https://github.com/fish-ken/selecto/blob/main/GUIDE_WINDOWS.md))  | __DL_WINDOWS__ |
+| macOS ([가이드](https://github.com/fish-ken/selecto/blob/main/GUIDE_MAC.md))| __DL_MACOS__ |
+| Linux ([가이드](https://github.com/fish-ken/selecto/blob/main/GUIDE_LINUX.md))| __DL_LINUX_DEB__ / __DL_LINUX_APPIMAGE__ |
 
 ---
